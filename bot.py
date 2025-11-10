@@ -1,6 +1,6 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
@@ -8,29 +8,39 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 # --- Handlers ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Bottom menu buttons
     keyboard = [
-        [InlineKeyboardButton("Buy VIP", callback_data="buy_vip")],
-        [InlineKeyboardButton("Say Hello", callback_data="say_hello")]
+        ["Buy VIP", "Say Hello"],  # first row
+        ["Info", "Help"]           # second row
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Welcome! Choose an option:", reply_markup=reply_markup)
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("Welcome! Choose an option from the menu below:", reply_markup=reply_markup)
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+
+    if text == "Buy VIP":
+        # Inline buttons inside message
+        keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Hello world! VIP option selected.", reply_markup=reply_markup)
+
+    elif text == "Say Hello":
+        keyboard = [[InlineKeyboardButton("Say Hello Again", callback_data="hello_again")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Hello world!", reply_markup=reply_markup)
+
+    elif text == "Info":
+        await update.message.reply_text("This is a demo bot showing menu + inline buttons.")
+
+    elif text == "Help":
+        await update.message.reply_text("Use the bottom menu buttons or inline buttons to interact.")
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "buy_vip":
-        keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        # Send a new message instead of replacing
-        await query.message.reply_text("Hello world! VIP option selected.", reply_markup=reply_markup)
-
-    elif query.data == "say_hello":
-        keyboard = [[InlineKeyboardButton("Say Hello Again", callback_data="hello_again")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.reply_text("Hello world!", reply_markup=reply_markup)
-
-    elif query.data == "confirm_vip":
+    if query.data == "confirm_vip":
         await query.message.reply_text("VIP confirmed! Hello world!")
 
     elif query.data == "hello_again":
@@ -40,7 +50,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    # Handlers
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     print("🚀 Starting bot in WEBHOOK mode...")
