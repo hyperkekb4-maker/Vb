@@ -6,7 +6,7 @@ from telegram.ext import (
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = int(os.environ.get("OWNER_ID"))  # Your Telegram ID to receive screenshots
+OWNER_ID = 8448843919 #Your Telegram ID to receive screenshots
 
 # Track which users are sending screenshots
 waiting_for_screenshot = set()
