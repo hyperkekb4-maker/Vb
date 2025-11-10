@@ -51,11 +51,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("I wasn't expecting a photo. Press the button first.")
         return
 
-    # Forward the photo to OWNER_ID
+    # Get the highest resolution photo
     photo_file = update.message.photo[-1]
-    await photo_file.get_file().download_to_drive(f"/tmp/{photo_file.file_id}.jpg")
-    await context.bot.send_photo(chat_id=OWNER_ID, photo=open(f"/tmp/{photo_file.file_id}.jpg", "rb"))
-    
+    file = await photo_file.get_file()  # <-- await the coroutine
+
+    # Send the photo directly to OWNER_ID without saving to disk
+    await context.bot.send_photo(chat_id=OWNER_ID, photo=file.file_id)
+
     await update.message.reply_text("Screenshot received! Thank you.")
     waiting_for_screenshot.remove(user_id)
 
