@@ -1,60 +1,32 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes
+import os
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from dotenv import load_dotenv
 
-# Replace these
-BOT_TOKEN = "8440911849:AAHzeMIWuZYOR_EUxXPZ8eX0WVbYQfJauFM"
-ADMIN_ID = "HXDM100"
-WALLET_USDT_TRC20 = "TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw"
-WALLET_USDT_BNB = "0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003"
+# Load .env variables
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+# /start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("💎 Buy VIP", callback_data="buy_vip")]
+        [InlineKeyboardButton("Buy VIP", callback_data="buy_vip")]
     ]
-    await update.message.reply_text(
-        "Welcome! 👋\nChoose an option below:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Welcome! Click the button:", reply_markup=reply_markup)
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Button callback handler
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
-
+    await query.answer()  # Acknowledge button press
     if query.data == "buy_vip":
-        keyboard = [
-            [InlineKeyboardButton("USDT TRC20", callback_data="pay_trc20")],
-            [InlineKeyboardButton("USDT BNB", callback_data="pay_bnb")],
-        ]
-        await query.edit_message_text(
-            "Select your payment option:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text(text="Hello world!")
 
-    elif query.data == "pay_trc20":
-        text = (
-            "💳 After depositing to Wallet, send the screenshot below.\n"
-            "Usually confirmed in less than 30 minutes.\n\n"
-            "💰 USDT TRC20 Wallet:\n"
-            f"{WALLET_USDT_TRC20}\n\n"
-            "💎 VIP Access: $300 - Lifetime\n"
-            "\nPress the button below to send your receipt."
-        )
-        keyboard = [[InlineKeyboardButton("Send Receipt", callback_data="send_receipt")]]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data == "pay_bnb":
-        text = (
-            "💳 After depositing to Wallet, send the screenshot below.\n"
-            "Usually confirmed in less than 30 minutes.\n\n"
-            "💰 USDT BNB (BEP20) Wallet:\n"
-            f"{WALLET_USDT_BNB}\n\n"
-            "💎 VIP Access: $300 - Lifetime\n"
-            "\nPress the button below to send your receipt."
-        )
-        keyboard = [[InlineKeyboardButton("Send Receipt", callback_data="send_receipt")]]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data == "send_receipt":
-        await query.edit_message_text(
-            "📸 Please send the screenshot of your payment in this chat."
-        )
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_callback))
+    
+    print("Bot is running...")
+    app.run_polling()
