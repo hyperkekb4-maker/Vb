@@ -56,7 +56,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
         await update.message.reply_text(
-            "VIP option selected.",
+            "1 Month - 200$.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
