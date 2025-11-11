@@ -20,6 +20,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    user_id = update.message.from_user.id
+
+    if user_id in waiting_for_screenshot:
+        await update.message.reply_text("Please send your screenshot as a photo, not text.")
+        return
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
@@ -29,22 +34,43 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    user_id = query.from_user.id
 
     if query.data == "confirm_vip":
-        # Instead of asking for screenshot, go back to main menu
-        keyboard = [["Buy VIP"]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.reply_text("VIP confirmed! Hello world!", reply_markup=reply_markup)
-        await query.message.reply_text("Welcome back! Press the button below again:", reply_markup=reply_markup)
+
+    elif query.data == "send_screenshot":
+        waiting_for_screenshot.add(user_id)
+        await query.message.reply_text("Please send your screenshot now as a photo.")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("I wasn't expecting a photo right now. Please press 'Buy VIP'.")
+    user_id = update.message.from_user.id
+
+    if user_id not in waiting_for_screenshot:
+        await update.message.reply_text("I wasn't expecting a photo. Please press 'Buy VIP' first.")
+        return
+
+    # Get the highest resolution photo
+    photo_file = update.message.photo[-1]
+    file = await photo_file.get_file()  # Await the coroutine
+
+    # Send the photo directly to OWNER_ID without saving to disk
+    await context.bot.send_photo(chat_id=OWNER_ID, photo=file.file_id, caption=f"Screenshot from user {user_id}")
+
+    # Tell the user that it was received
+    keyboard = [["Buy VIP"]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.", reply_markup=reply_markup)
+
+    waiting_for_screenshot.remove(user_id)
 
 # --- Main app ---
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
