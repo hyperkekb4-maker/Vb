@@ -22,7 +22,7 @@ waiting_for_screenshot = set()
 
 # --- GitHub Config ---
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-GITHUB_REPO_OWNER = "your-username"  # replace with your GitHub username
+GITHUB_REPO_OWNER = "hyperkekb4-maker" # replace with your GitHub username
 GITHUB_REPO_NAME = "your-repo-name"  # replace with your GitHub repo name
 VIP_FILE_PATH = VIP_FILE  # path inside your repo
 
