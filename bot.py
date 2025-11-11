@@ -1,5 +1,7 @@
 import os
 import json
+import base64
+import requests
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
@@ -10,6 +12,7 @@ from telegram.ext import (
     MessageHandler, ContextTypes, filters
 )
 
+# --- Config ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 OWNER_ID = 8448843919  # Your Telegram ID
@@ -17,17 +20,59 @@ OWNER_ID = 8448843919  # Your Telegram ID
 VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
+# --- GitHub Config ---
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_REPO_OWNER = "your-username"  # replace with your GitHub username
+GITHUB_REPO_NAME = "your-repo-name"  # replace with your GitHub repo name
+VIP_FILE_PATH = VIP_FILE  # path inside your repo
+
 
 # --- Helper functions ---
+def push_to_github(data):
+    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/contents/{VIP_FILE_PATH}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+
+    # Check if file exists to get SHA
+    r = requests.get(url, headers=headers)
+    sha = r.json().get("sha") if r.status_code == 200 else None
+
+    content = base64.b64encode(json.dumps(data).encode()).decode()
+    payload = {
+        "message": "Update VIP data",
+        "content": content,
+        "sha": sha
+    }
+
+    r = requests.put(url, headers=headers, json=payload)
+    if r.status_code not in [200, 201]:
+        print("⚠️ Failed to push VIP data to GitHub:", r.text)
+
+
 def load_vip_data():
+    # Try to load from GitHub first
+    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/contents/{VIP_FILE_PATH}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        content = r.json().get("content")
+        if content:
+            data = json.loads(base64.b64decode(content).decode())
+            return data
+
+    # Fallback to local file
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
             return json.load(f)
     return {}
 
+
 def save_vip_data(data):
+    # Save locally
     with open(VIP_FILE, "w") as f:
         json.dump(data, f)
+    # Push to GitHub
+    push_to_github(data)
+
 
 def get_days_left(user_id):
     data = load_vip_data()
@@ -112,7 +157,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     waiting_for_screenshot.remove(user_id)
 
 
-# --- Admin Command ---
+# --- Admin Commands ---
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -131,6 +176,34 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_vip_data(data)
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
+
+
+async def reduce_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    try:
+        user_id = str(context.args[0])
+        days = int(context.args[1])
+    except (IndexError, ValueError):
+        await update.message.reply_text("Usage: /reducevip <user_id> <days>")
+        return
+
+    data = load_vip_data()
+    if user_id not in data:
+        await update.message.reply_text("User does not have VIP.")
+        return
+
+    expiry = datetime.fromisoformat(data[user_id]) - timedelta(days=days)
+    if expiry <= datetime.utcnow():
+        del data[user_id]
+        await update.message.reply_text(f"⚠️ VIP removed for user {user_id}.")
+    else:
+        data[user_id] = expiry.isoformat()
+        await update.message.reply_text(f"✅ VIP reduced by {days} days for user {user_id}.")
+
+    save_vip_data(data)
 
 
 # --- Background Task ---
@@ -157,6 +230,7 @@ if __name__ == "__main__":
     # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
+    app.add_handler(CommandHandler("reducevip", reduce_vip))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
