@@ -42,8 +42,11 @@ def get_days_left(user_id):
 # === Commands / Handlers ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Buy VIP", "📱 My Account"]]
-    await update.message.reply_text("Welcome! Press the button below:",
-                                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    await update.message.reply_text(
+        "Welcome! Press the button below:",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    )
+
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -55,8 +58,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-        await update.message.reply_text("Hello world! VIP option selected.",
-                                        reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            "Hello world! VIP option selected.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
@@ -75,8 +80,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "confirm_vip":
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text("VIP confirmed! Hello world!",
-                                       reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text(
+            "VIP confirmed! Hello world!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
@@ -166,27 +173,23 @@ async def check_expired_vips(app):
 
 # === Main App ===
 if __name__ == "__main__":
-    async def main():
-        app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("addvip", add_vip))
-        app.add_handler(MessageHandler(filters.TEXT, handle_text))
-        app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-        app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("addvip", add_vip))
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(CallbackQueryHandler(button_callback))
 
-        # Start background task
-        async def on_startup(_):
-            asyncio.create_task(check_expired_vips(app))
+    async def on_startup(_):
+        asyncio.create_task(check_expired_vips(app))
 
-        app.post_init = on_startup
+    app.post_init = on_startup
 
-        print("🚀 Starting bot in WEBHOOK mode...")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.environ.get("PORT", 10000)),
-            url_path=BOT_TOKEN,
-            webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        )
-
-    asyncio.run(main())
+    print("🚀 Starting bot in WEBHOOK mode...")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+    )
