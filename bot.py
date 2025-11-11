@@ -26,11 +26,9 @@ def load_vip_data():
             return json.load(f)
     return {}
 
-
 def save_vip_data(data):
     with open(VIP_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
+        json.dump(data, f)
 
 def get_days_left(user_id):
     data = load_vip_data()
@@ -146,18 +144,42 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No VIPs found.")
         return
 
+    # Text report
     report_lines = []
     for uid, expiry in data.items():
         days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
         report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
-    # Send text report
-    await update.message.reply_text("\n".join(report_lines))
+    await update.message.reply_text("📊 VIP Report:\n" + "\n".join(report_lines))
 
-    # Send JSON backup file
-    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
+    # JSON backup file
+    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode('utf-8'))
     json_bytes.name = "vip_backup.json"
-    await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 VIP Backup JSON")
+    await update.message.reply_document(
+        chat_id=OWNER_ID,
+        document=json_bytes,
+        caption="💾 VIP Backup JSON"
+    )
+
+
+async def backup_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Manual command to export only the JSON backup file."""
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized.")
+        return
+
+    data = load_vip_data()
+    if not data:
+        await update.message.reply_text("No VIP data to back up.")
+        return
+
+    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode('utf-8'))
+    json_bytes.name = "vip_backup.json"
+    await update.message.reply_document(
+        chat_id=OWNER_ID,
+        document=json_bytes,
+        caption="💾 Manual VIP Backup JSON"
+    )
 
 
 async def import_vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -187,8 +209,6 @@ async def check_expired_vips(app):
         await asyncio.sleep(86400)  # every 24 hours
         data = load_vip_data()
         now = datetime.utcnow()
-
-        # Remove expired VIPs
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
         for uid in expired:
             await app.bot.send_message(
@@ -199,21 +219,20 @@ async def check_expired_vips(app):
         if expired:
             save_vip_data(data)
 
-        # Send daily report
+        # Also send daily report automatically
         if data:
             report_lines = []
             for uid, expiry in data.items():
                 days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
                 report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
-            # Text report
             await app.bot.send_message(
                 chat_id=OWNER_ID,
                 text="📊 Daily VIP Report:\n" + "\n".join(report_lines)
             )
 
-            # JSON backup
-            json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
+            # Send daily JSON backup
+            json_bytes = io.BytesIO(json.dumps(data, indent=2).encode('utf-8'))
             json_bytes.name = "vip_backup.json"
             await app.bot.send_document(
                 chat_id=OWNER_ID,
@@ -230,6 +249,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
+    app.add_handler(CommandHandler("backup", backup_vip))
     app.add_handler(CommandHandler("importlist", import_vip_list))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
