@@ -26,9 +26,11 @@ def load_vip_data():
             return json.load(f)
     return {}
 
+
 def save_vip_data(data):
     with open(VIP_FILE, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=2)
+
 
 def get_days_left(user_id):
     data = load_vip_data()
@@ -147,14 +149,13 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     report_lines = []
     for uid, expiry in data.items():
         days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-        link = f"https://t.me/c/{uid}"  # Telegram user link (works if bot can see user)
-        report_lines.append(f"ID: {uid} | Days left: {days_left} | [Profile]({link})")
+        report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
     # Send text report
-    await update.message.reply_text("\n".join(report_lines), parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text("\n".join(report_lines))
 
     # Send JSON backup file
-    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode('utf-8'))
+    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
     json_bytes.name = "vip_backup.json"
     await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 VIP Backup JSON")
 
@@ -186,6 +187,8 @@ async def check_expired_vips(app):
         await asyncio.sleep(86400)  # every 24 hours
         data = load_vip_data()
         now = datetime.utcnow()
+
+        # Remove expired VIPs
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
         for uid in expired:
             await app.bot.send_message(
@@ -196,18 +199,26 @@ async def check_expired_vips(app):
         if expired:
             save_vip_data(data)
 
-        # Also send daily report automatically
+        # Send daily report
         if data:
             report_lines = []
             for uid, expiry in data.items():
                 days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-                link = f"https://t.me/c/{uid}"
-                report_lines.append(f"ID: {uid} | Days left: {days_left} | [Profile]({link})")
+                report_lines.append(f"ID: {uid} | Days left: {days_left}")
+
+            # Text report
             await app.bot.send_message(
                 chat_id=OWNER_ID,
-                text="📊 Daily VIP Report:\n" + "\n".join(report_lines),
-                parse_mode="Markdown",
-                disable_web_page_preview=True
+                text="📊 Daily VIP Report:\n" + "\n".join(report_lines)
+            )
+
+            # JSON backup
+            json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
+            json_bytes.name = "vip_backup.json"
+            await app.bot.send_document(
+                chat_id=OWNER_ID,
+                document=json_bytes,
+                caption="💾 Daily VIP Backup JSON"
             )
 
 
