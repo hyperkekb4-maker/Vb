@@ -18,7 +18,7 @@ VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
 
-# --- Helper functions ---
+# --- Helper functions ---h
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
