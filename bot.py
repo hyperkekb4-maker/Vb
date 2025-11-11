@@ -18,7 +18,7 @@ VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
 
-# --- Helper functions ---h
+# --- Helper functions ---
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
@@ -38,7 +38,7 @@ def get_days_left(user_id):
     return max(0, remaining)
 
 
-# --- Commands and Handlers ---
+# --- Bot Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Buy VIP", "📱 My Account"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -55,8 +55,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-        await update.message.reply_text("Hello world! VIP option selected.",
-                                        reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            "VIP option selected.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
@@ -75,8 +77,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "confirm_vip":
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text("VIP confirmed! Hello world!",
-                                       reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text(
+            "VIP confirmed!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
@@ -92,6 +96,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
+    # Send to owner
     await context.bot.send_photo(
         chat_id=OWNER_ID,
         photo=file.file_id,
@@ -147,29 +152,25 @@ async def check_expired_vips(app):
 
 # --- Main App ---
 if __name__ == "__main__":
-    import asyncio
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    async def startup():
-        app = ApplicationBuilder().token(BOT_TOKEN).build()
+    # Handlers
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("addvip", add_vip))
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(CallbackQueryHandler(button_callback))
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("addvip", add_vip))
-        app.add_handler(MessageHandler(filters.TEXT, handle_text))
-        app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-        app.add_handler(CallbackQueryHandler(button_callback))
+    # Background VIP checker
+    async def on_startup(app_instance):
+        asyncio.create_task(check_expired_vips(app_instance))
 
-        # Start background VIP expiration checker
-        async def on_startup(app_instance):
-            asyncio.create_task(check_expired_vips(app_instance))
+    app.post_init = on_startup
 
-        app.post_init = on_startup  # ensure it runs after app starts
-
-        print("🚀 Starting bot in WEBHOOK mode...")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.environ.get("PORT", 10000)),
-            url_path=BOT_TOKEN,
-            webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        )
-
-    asyncio.get_event_loop().run_until_complete(startup())
+    print("🚀 Starting bot in WEBHOOK mode...")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+    )
