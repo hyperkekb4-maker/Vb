@@ -1,5 +1,6 @@
 import os
 import json
+import io
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
@@ -112,7 +113,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     waiting_for_screenshot.remove(user_id)
 
 
-# --- Admin Command ---
+# --- Admin Commands ---
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -133,10 +134,56 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
 
+async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized.")
+        return
+
+    data = load_vip_data()
+    if not data:
+        await update.message.reply_text("No VIPs found.")
+        return
+
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        link = f"https://t.me/c/{uid}"  # Telegram user link (works if bot can see user)
+        report_lines.append(f"ID: {uid} | Days left: {days_left} | [Profile]({link})")
+
+    # Send text report
+    await update.message.reply_text("\n".join(report_lines), parse_mode="Markdown", disable_web_page_preview=True)
+
+    # Send JSON backup file
+    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode('utf-8'))
+    json_bytes.name = "vip_backup.json"
+    await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 VIP Backup JSON")
+
+
+async def import_vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized.")
+        return
+
+    if update.message.document:
+        file = await update.message.document.get_file()
+        file_path = f"/tmp/{update.message.document.file_name}"
+        await file.download_to_drive(file_path)
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            save_vip_data(data)
+            await update.message.reply_text("✅ VIP list imported successfully from file!")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Failed to import: {e}")
+        return
+
+    await update.message.reply_text("Please send the VIP JSON file with this command.")
+
+
 # --- Background Task ---
 async def check_expired_vips(app):
     while True:
-        await asyncio.sleep(86400)  # check every 24 hours
+        await asyncio.sleep(86400)  # every 24 hours
         data = load_vip_data()
         now = datetime.utcnow()
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
@@ -149,6 +196,20 @@ async def check_expired_vips(app):
         if expired:
             save_vip_data(data)
 
+        # Also send daily report automatically
+        if data:
+            report_lines = []
+            for uid, expiry in data.items():
+                days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+                link = f"https://t.me/c/{uid}"
+                report_lines.append(f"ID: {uid} | Days left: {days_left} | [Profile]({link})")
+            await app.bot.send_message(
+                chat_id=OWNER_ID,
+                text="📊 Daily VIP Report:\n" + "\n".join(report_lines),
+                parse_mode="Markdown",
+                disable_web_page_preview=True
+            )
+
 
 # --- Main App ---
 if __name__ == "__main__":
@@ -157,6 +218,8 @@ if __name__ == "__main__":
     # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
+    app.add_handler(CommandHandler("viplist", vip_list))
+    app.add_handler(CommandHandler("importlist", import_vip_list))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
