@@ -6,7 +6,7 @@ from telegram.ext import (
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = 8448843919 #Your Telegram ID to receive screenshots
+OWNER_ID = 8448843919  # Your Telegram ID to receive screenshots
 
 # Track which users are sending screenshots
 waiting_for_screenshot = set()
@@ -20,11 +20,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    user_id = update.message.from_user.id
-
-    if user_id in waiting_for_screenshot:
-        await update.message.reply_text("Please send a screenshot, not text.")
-        return
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
@@ -34,32 +29,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_id = query.from_user.id
 
     if query.data == "confirm_vip":
-        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Instead of asking for screenshot, go back to main menu
+        keyboard = [["Buy VIP"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await query.message.reply_text("VIP confirmed! Hello world!", reply_markup=reply_markup)
-
-    elif query.data == "send_screenshot":
-        waiting_for_screenshot.add(user_id)
-        await query.message.reply_text("Please send your screenshot now as a photo.")
+        await query.message.reply_text("Welcome back! Press the button below again:", reply_markup=reply_markup)
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id not in waiting_for_screenshot:
-        await update.message.reply_text("I wasn't expecting a photo. Press the button first.")
-        return
-
-    # Get the highest resolution photo
-    photo_file = update.message.photo[-1]
-    file = await photo_file.get_file()  # <-- await the coroutine
-
-    # Send the photo directly to OWNER_ID without saving to disk
-    await context.bot.send_photo(chat_id=OWNER_ID, photo=file.file_id)
-
-    await update.message.reply_text("Screenshot received! Thank you.")
-    waiting_for_screenshot.remove(user_id)
+    await update.message.reply_text("I wasn't expecting a photo right now. Please press 'Buy VIP'.")
 
 # --- Main app ---
 
