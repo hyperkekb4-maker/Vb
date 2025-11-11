@@ -147,7 +147,9 @@ async def check_expired_vips(app):
 
 # --- Main App ---
 if __name__ == "__main__":
-    async def main():
+    import asyncio
+
+    async def startup():
         app = ApplicationBuilder().token(BOT_TOKEN).build()
 
         app.add_handler(CommandHandler("start", start))
@@ -156,15 +158,18 @@ if __name__ == "__main__":
         app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
         app.add_handler(CallbackQueryHandler(button_callback))
 
-        # Run VIP expiry checker in the background
-        asyncio.create_task(check_expired_vips(app))
+        # Start background VIP expiration checker
+        async def on_startup(app_instance):
+            asyncio.create_task(check_expired_vips(app_instance))
+
+        app.post_init = on_startup  # ensure it runs after app starts
 
         print("🚀 Starting bot in WEBHOOK mode...")
-        await app.run_webhook(
+        app.run_webhook(
             listen="0.0.0.0",
             port=int(os.environ.get("PORT", 10000)),
             url_path=BOT_TOKEN,
             webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
         )
 
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(startup())
