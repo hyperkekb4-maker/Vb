@@ -10,15 +10,16 @@ from telegram.ext import (
     MessageHandler, ContextTypes, filters
 )
 
+# === CONFIG ===
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = 8448843919  # Your Telegram ID
-
+OWNER_ID = 8448843919  # your Telegram ID
+GROUP_ID = -1003203604109  # your private group ID (add your bot as admin)
 VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
 
-# --- Helper functions ---
+# === Helpers ===
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
@@ -38,12 +39,11 @@ def get_days_left(user_id):
     return max(0, remaining)
 
 
-# --- Bot Handlers ---
+# === Commands / Handlers ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Buy VIP", "📱 My Account"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Welcome! Press the button below:", reply_markup=reply_markup)
-
+    await update.message.reply_text("Welcome! Press the button below:",
+                                    reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -55,10 +55,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-        await update.message.reply_text(
-            "VIP option selected.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.message.reply_text("Hello world! VIP option selected.",
+                                        reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
@@ -77,10 +75,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "confirm_vip":
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text(
-            "VIP confirmed!",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.message.reply_text("VIP confirmed! Hello world!",
+                                       reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
@@ -96,7 +92,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
-    # Send to owner
     await context.bot.send_photo(
         chat_id=OWNER_ID,
         photo=file.file_id,
@@ -112,7 +107,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     waiting_for_screenshot.remove(user_id)
 
 
-# --- Admin Command ---
+# === Owner Command ===
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -133,44 +128,65 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
 
-# --- Background Task ---
+# === Background VIP Expiration Checker ===
 async def check_expired_vips(app):
     while True:
         await asyncio.sleep(86400)  # check every 24 hours
         data = load_vip_data()
         now = datetime.utcnow()
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
+
         for uid in expired:
-            await app.bot.send_message(
-                chat_id=OWNER_ID,
-                text=f"⚠️ VIP expired for user {uid}"
-            )
+            try:
+                # Kick from group
+                await app.bot.ban_chat_member(chat_id=GROUP_ID, user_id=int(uid))
+                await app.bot.unban_chat_member(chat_id=GROUP_ID, user_id=int(uid))  # to allow rejoin later
+
+                # Notify owner
+                await app.bot.send_message(chat_id=OWNER_ID,
+                                           text=f"⚠️ VIP expired for user {uid}. Kicked from group.")
+
+                # Notify user
+                try:
+                    await app.bot.send_message(chat_id=int(uid),
+                                               text="🚫 Your VIP subscription has expired. You've been removed from the group.")
+                except Exception:
+                    pass  # user may not have private messages open
+
+            except Exception as e:
+                await app.bot.send_message(chat_id=OWNER_ID,
+                                           text=f"⚠️ Error kicking user {uid}: {e}")
+
+            # Remove from list
             del data[uid]
+
         if expired:
             save_vip_data(data)
 
 
-# --- Main App ---
+# === Main App ===
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    async def main():
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("addvip", add_vip))
-    app.add_handler(MessageHandler(filters.TEXT, handle_text))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(CallbackQueryHandler(button_callback))
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("addvip", add_vip))
+        app.add_handler(MessageHandler(filters.TEXT, handle_text))
+        app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+        app.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background VIP checker
-    async def on_startup(app_instance):
-        asyncio.create_task(check_expired_vips(app_instance))
+        # Start background task
+        async def on_startup(_):
+            asyncio.create_task(check_expired_vips(app))
 
-    app.post_init = on_startup
+        app.post_init = on_startup
 
-    print("🚀 Starting bot in WEBHOOK mode...")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000)),
-        url_path=BOT_TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+        print("🚀 Starting bot in WEBHOOK mode...")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 10000)),
+            url_path=BOT_TOKEN,
+            webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+        )
+
+    asyncio.run(main())
