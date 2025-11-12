@@ -1,6 +1,5 @@
 import os
 import json
-import io
 import asyncio
 from datetime import datetime, timedelta
 from telegram import Update
@@ -48,6 +47,7 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
+
     data = load_vip_data()
     if not data:
         await update.message.reply_text("No VIPs found.")
@@ -63,48 +63,56 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("📊 VIP List:\n" + "\n".join(report))
 
-    # Send backup JSON
-    json_bytes = io.BytesIO(json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
-    json_bytes.name = "vip_backup.json"
-    await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 VIP Backup JSON")
-
 async def backup_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send VIP backup as plain text for copy-paste import."""
     if update.effective_user.id != OWNER_ID:
         return
+
     data = load_vip_data()
     if not data:
         await update.message.reply_text("No VIP data to back up.")
         return
-    json_bytes = io.BytesIO(json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
-    json_bytes.name = "vip_backup.json"
-    await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 Manual VIP Backup JSON")
+
+    lines = [f"{name}|{expiry}" for name, expiry in data.items()]
+    backup_text = "\n".join(lines)
+    await update.message.reply_text(
+        "💾 VIP Backup (copy all lines to import later):\n\n" + backup_text
+    )
 
 async def import_vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Import VIPs from pasted text or a file."""
     if update.effective_user.id != OWNER_ID:
         return
-    if not update.message.document:
-        await update.message.reply_text("Attach the VIP JSON file with this command.")
-        return
 
-    file = await update.message.document.get_file()
-    tmp_path = f"/tmp/{update.message.document.file_name}"
-    await file.download_to_drive(tmp_path)
-
-    try:
+    text_data = ""
+    if update.message.text:
+        text_data = update.message.text
+    elif update.message.document:
+        file = await update.message.document.get_file()
+        tmp_path = f"/tmp/{update.message.document.file_name}"
+        await file.download_to_drive(tmp_path)
         with open(tmp_path, "r", encoding="utf-8") as f:
-            imported = json.load(f)
-    except Exception as e:
-        await update.message.reply_text(f"Failed to read file: {e}")
+            text_data = f.read()
+    else:
+        await update.message.reply_text("Send VIP data as text or attach a file.")
         return
 
-    if not isinstance(imported, dict):
-        await update.message.reply_text("Invalid JSON format.")
+    lines = text_data.strip().splitlines()
+    new_entries = {}
+    for line in lines:
+        if "|" not in line:
+            continue
+        name, expiry = line.split("|", 1)
+        new_entries[name.strip()] = expiry.strip()
+
+    if not new_entries:
+        await update.message.reply_text("No valid VIP entries found.")
         return
 
     data = load_vip_data()
-    data.update(imported)
+    data.update(new_entries)
     save_vip_data(data)
-    await update.message.reply_text(f"✅ Imported {len(imported)} VIP entries successfully.")
+    await update.message.reply_text(f"✅ Imported {len(new_entries)} VIP entries successfully.")
 
 # --- Background task ---
 async def daily_report(app):
@@ -128,13 +136,11 @@ async def daily_report(app):
                 report.append(f"{n} — {days_left} days left")
 
             await app.bot.send_message(chat_id=OWNER_ID, text="📊 Daily VIP Report:\n" + "\n".join(report))
-            json_bytes = io.BytesIO(json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
-            json_bytes.name = "vip_backup.json"
-            await app.bot.send_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 Daily VIP Backup JSON")
 
 # --- Main ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("backup", backup_vip))
