@@ -3,14 +3,17 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, ContextTypes
+)
 
 # === CONFIG ===
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-OWNER_ID = 8448843919  # your Telegram user ID
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+OWNER_ID = 8448843919  # your Telegram ID
 VIP_FILE = "vip_data.json"
 
-# === Helpers ===
+# --- Helpers ---
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r", encoding="utf-8") as f:
@@ -24,22 +27,7 @@ def save_vip_data(data):
     with open(VIP_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def format_vip_list():
-    """Return the VIP list as a readable text message."""
-    data = load_vip_data()
-    if not data:
-        return "No VIPs found."
-    lines = []
-    for name, expiry_str in data.items():
-        try:
-            expiry = datetime.fromisoformat(expiry_str)
-            days_left = max(0, (expiry - datetime.utcnow()).days)
-        except Exception:
-            days_left = "unknown"
-        lines.append(f"{name} — {days_left} days left")
-    return "\n".join(lines)
-
-# === Commands ===
+# --- Commands ---
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
@@ -56,103 +44,117 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_vip_data(data)
     await update.message.reply_text(f"✅ {name} added for {days} days (until {expiry}).")
 
-async def reduce_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        return
-    try:
-        name = context.args[0]
-        days = int(context.args[1])
-    except (IndexError, ValueError):
-        await update.message.reply_text("Usage: /reducevip <name> <days>")
-        return
-
-    data = load_vip_data()
-    if name not in data:
-        await update.message.reply_text(f"❌ VIP {name} not found.")
-        return
-
-    expiry = datetime.fromisoformat(data[name])
-    new_expiry = expiry - timedelta(days=days)
-    if new_expiry <= datetime.utcnow():
-        del data[name]
-        save_vip_data(data)
-        await update.message.reply_text(f"⚠️ VIP {name} expired due to reduction.")
-    else:
-        data[name] = new_expiry.isoformat()
-        save_vip_data(data)
-        await update.message.reply_text(f"✅ Reduced {name} by {days} days (new expiry: {new_expiry}).")
-
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
-    msg = format_vip_list()
-    await update.message.reply_text("📊 VIP List:\n" + msg)
+
+    data = load_vip_data()
+    if not data:
+        await update.message.reply_text("No VIPs found.")
+        return
+
+    report = []
+    for name, expiry in data.items():
+        try:
+            days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        except Exception:
+            days_left = "unknown"
+        report.append(f"{name} — {days_left} days left")
+
+    await update.message.reply_text("📊 VIP List:\n" + "\n".join(report))
 
 async def backup_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Manual text backup — sends a copy of the list in message format."""
+    """Send VIP backup as plain text for copy-paste import."""
     if update.effective_user.id != OWNER_ID:
         return
-    msg = format_vip_list()
-    await update.message.reply_text("💾 VIP Backup (message format):\n" + msg)
+
+    data = load_vip_data()
+    if not data:
+        await update.message.reply_text("No VIP data to back up.")
+        return
+
+    lines = [f"{name}|{expiry}" for name, expiry in data.items()]
+    backup_text = "\n".join(lines)
+    await update.message.reply_text(
+        "💾 VIP Backup (copy all lines to import later):\n\n" + backup_text
+    )
 
 async def import_vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Imports VIPs from text message format."""
+    """Import VIPs from pasted text or a file."""
     if update.effective_user.id != OWNER_ID:
         return
-    text = update.message.text
-    lines = text.split("\n")[1:]  # skip the /importlist command line
-    data = load_vip_data()
 
+    text_data = ""
+    if update.message.text:
+        text_data = update.message.text
+    elif update.message.document:
+        file = await update.message.document.get_file()
+        tmp_path = f"/tmp/{update.message.document.file_name}"
+        await file.download_to_drive(tmp_path)
+        with open(tmp_path, "r", encoding="utf-8") as f:
+            text_data = f.read()
+    else:
+        await update.message.reply_text("Send VIP data as text or attach a file.")
+        return
+
+    lines = text_data.strip().splitlines()
+    new_entries = {}
     for line in lines:
-        if "—" in line:
-            name = line.split("—")[0].strip()
-            days_left = line.split("—")[1].split(" ")[0].strip()
-            try:
-                expiry = datetime.utcnow() + timedelta(days=int(days_left))
-                data[name] = expiry.isoformat()
-            except:
-                continue
+        if "|" not in line:
+            continue
+        name, expiry = line.split("|", 1)
+        new_entries[name.strip()] = expiry.strip()
 
+    if not new_entries:
+        await update.message.reply_text("No valid VIP entries found.")
+        return
+
+    data = load_vip_data()
+    data.update(new_entries)
     save_vip_data(data)
-    await update.message.reply_text(f"✅ Imported {len(lines)} VIPs from message successfully.")
+    await update.message.reply_text(f"✅ Imported {len(new_entries)} VIP entries successfully.")
 
-# === Background task ===
+# --- Background task ---
 async def daily_report(app):
-    await asyncio.sleep(5)
     while True:
         await asyncio.sleep(86400)  # every 24 hours
         data = load_vip_data()
         now = datetime.utcnow()
-
         expired = [n for n, e in data.items() if datetime.fromisoformat(e) <= now]
+
         for n in expired:
             del data[n]
 
-        if expired or data:
-            save_vip_data(data)
-
-        # Notify expired VIPs
         if expired:
+            save_vip_data(data)
             await app.bot.send_message(chat_id=OWNER_ID, text=f"⚠️ Expired VIPs: {', '.join(expired)}")
 
-        # Send daily text backup
         if data:
-            report = "📊 Daily VIP Report (message format):\n" + format_vip_list()
-            await app.bot.send_message(chat_id=OWNER_ID, text=report)
+            report = []
+            for n, e in data.items():
+                days_left = (datetime.fromisoformat(e) - datetime.utcnow()).days
+                report.append(f"{n} — {days_left} days left")
 
-# === Main ===
+            await app.bot.send_message(chat_id=OWNER_ID, text="📊 Daily VIP Report:\n" + "\n".join(report))
+
+# --- Main ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("addvip", add_vip))
-    app.add_handler(CommandHandler("reducevip", reduce_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("backup", backup_vip))
     app.add_handler(CommandHandler("importlist", import_vip_list))
 
     async def on_startup(_app):
         asyncio.create_task(daily_report(_app))
+
     app.post_init = on_startup
 
-    print("🚀 Starting bot in POLLING mode...")
-    app.run_polling(drop_pending_updates=True)
+    print("🚀 Starting bot in WEBHOOK mode...")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+    )
