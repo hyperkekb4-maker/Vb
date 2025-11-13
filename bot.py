@@ -13,10 +13,9 @@ from telegram.ext import (
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 OWNER_ID = 8448843919  # Your Telegram ID
-
 VIP_FILE = "vip_data.json"
-waiting_for_screenshot = set()
 
+waiting_for_screenshot = set()
 
 # --- Helper functions ---
 def load_vip_data():
@@ -25,11 +24,9 @@ def load_vip_data():
             return json.load(f)
     return {}
 
-
 def save_vip_data(data):
     with open(VIP_FILE, "w") as f:
         json.dump(data, f, indent=2)
-
 
 def get_days_left(user_id):
     data = load_vip_data()
@@ -39,13 +36,11 @@ def get_days_left(user_id):
     remaining = (expiry - datetime.utcnow()).days
     return max(0, remaining)
 
-
 # --- Bot Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Buy VIP", "📱 My Account"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Welcome! Press the button below:", reply_markup=reply_markup)
-
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -56,7 +51,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Buy VIP":
-        keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+        keyboard = [
+            [InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")],
+            [InlineKeyboardButton("Confirm VIP 2", callback_data="confirm_vip_2")]
+        ]
         await update.message.reply_text(
             "1 Month - 200$.",
             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -71,7 +69,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ Your VIP has expired.")
 
-
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -84,10 +81,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    elif query.data == "confirm_vip_2":
+        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
+        await query.message.reply_text(
+            "VIP confirmed 2!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
         await query.message.reply_text("Please send your screenshot now as a photo.")
-
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -109,14 +112,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user with existing message + profile button
+    # Reply to user
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
     )
 
     waiting_for_screenshot.remove(user_id)
-
 
 # --- Admin Commands ---
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,7 +140,6 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
-
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
@@ -155,7 +156,6 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
     await update.message.reply_text("\n".join(report_lines))
-
 
 async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -174,7 +174,6 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
 
-
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
@@ -187,6 +186,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
     data = {}
+
     for line in lines:
         if ":" not in line:
             continue
@@ -200,7 +200,6 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     save_vip_data(data)
     await update.message.reply_text("✅ VIP list imported successfully!")
-
 
 # --- Background Task ---
 async def check_expired_vips(app):
@@ -218,10 +217,11 @@ async def check_expired_vips(app):
                     text=f"⚠️ VIP expired for user {uid}"
                 )
                 del data[uid]
+
             if expired:
                 save_vip_data(data)
 
-            # Send daily report as simple text
+            # Send daily report
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -235,7 +235,6 @@ async def check_expired_vips(app):
 
         except Exception as e:
             print(f"Error in VIP checker: {e}")
-
 
 # --- Main App ---
 if __name__ == "__main__":
@@ -254,7 +253,6 @@ if __name__ == "__main__":
     # Background VIP checker
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
-
     app.post_init = on_startup
 
     print("🚀 Starting bot in WEBHOOK mode...")
@@ -263,4 +261,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        )
+    )
