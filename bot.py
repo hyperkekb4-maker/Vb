@@ -46,19 +46,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.message.from_user.id
 
-    if user_id in waiting_for_screenshot:
-        await update.message.reply_text("Please send your screenshot as a photo, not text.")
-        return
-
+    # --- Always restart VIP flow if Buy VIP is pressed ---
     if text == "Buy VIP":
+        # Remove user from waiting list if they were in the middle of screenshot
+        waiting_for_screenshot.discard(user_id)
+
         keyboard = [
             [InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")],
             [InlineKeyboardButton("Confirm VIP 2", callback_data="confirm_vip_2")]
         ]
         await update.message.reply_text(
-            "1 Month - 200$.",
+            "1 Month - 200$.\nPress a button to confirm your VIP purchase:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        return  # Stop further checks
+
+    if user_id in waiting_for_screenshot:
+        await update.message.reply_text("Please send your screenshot as a photo, not text.")
+        return
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
@@ -89,7 +94,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("VIP confirmed 2!")
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "hy866h7gt65ty",
+            "Please send your screenshot for VIP 2:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
