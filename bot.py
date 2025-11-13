@@ -78,8 +78,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- Confirm VIP (1) ---
     if query.data == "confirm_vip":
         await query.message.reply_text("VIP confirmed!")
-        await query.message.reply_text("test1")
-
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
             "Send your screenshot:",
@@ -89,8 +87,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- Confirm VIP (2) ---
     elif query.data == "confirm_vip_2":
         await query.message.reply_text("VIP confirmed 2!")
-        await query.message.reply_text("test2")
-
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
             "Send your screenshot:",
