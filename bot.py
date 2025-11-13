@@ -89,7 +89,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("VIP confirmed 2!")
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "Send your screenshot:",
+            "hy866h75ty",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
