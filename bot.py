@@ -80,6 +80,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "VIP confirmed!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        # Send second message
+        await query.message.reply_text("test1")
 
     elif query.data == "confirm_vip_2":
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
@@ -87,6 +89,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "VIP confirmed 2!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        # Send second message
+        await query.message.reply_text("test2")
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
