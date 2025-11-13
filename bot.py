@@ -74,23 +74,27 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
+    # --- Confirm VIP (1) ---
     if query.data == "confirm_vip":
-        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text(
-            "VIP confirmed!",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        # Send second message
+        await query.message.reply_text("VIP confirmed!")
         await query.message.reply_text("test1")
 
-    elif query.data == "confirm_vip_2":
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "VIP confirmed 2!",
+            "Please continue:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        # Send second message
+
+    # --- Confirm VIP (2) ---
+    elif query.data == "confirm_vip_2":
+        await query.message.reply_text("VIP confirmed 2!")
         await query.message.reply_text("test2")
+
+        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
+        await query.message.reply_text(
+            "Please continue:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
@@ -98,6 +102,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+
     if user_id not in waiting_for_screenshot:
         await update.message.reply_text("I wasn't expecting a photo. Please press 'Buy VIP' first.")
         return
@@ -112,11 +117,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=f"📸 Screenshot from user {user_id}"
     )
 
-    # Keyboard with button linking to your admin profile
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
@@ -189,8 +192,8 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
-    data = {}
 
+    data = {}
     for line in lines:
         if ":" not in line:
             continue
@@ -209,12 +212,12 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(86400)  # every 24 hours
+            await asyncio.sleep(86400)
             data = load_vip_data()
             now = datetime.utcnow()
 
-            # Remove expired VIPs
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
+
             for uid in expired:
                 await app.bot.send_message(
                     chat_id=OWNER_ID,
@@ -225,7 +228,6 @@ async def check_expired_vips(app):
             if expired:
                 save_vip_data(data)
 
-            # Send daily report
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -236,7 +238,6 @@ async def check_expired_vips(app):
                     chat_id=OWNER_ID,
                     text="📊 Daily VIP Report:\n" + "\n".join(report_lines)
                 )
-
         except Exception as e:
             print(f"Error in VIP checker: {e}")
 
@@ -244,19 +245,19 @@ async def check_expired_vips(app):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
+
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background VIP checker
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
+
     app.post_init = on_startup
 
     print("🚀 Starting bot in WEBHOOK mode...")
