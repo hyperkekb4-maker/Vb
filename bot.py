@@ -56,6 +56,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Buy VIP":
+        # Inline button for confirmation
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
         vip_text = (
             "After depositing to Wallet, send the screenshot below, usually less than 30 minutes is confirmed\n\n"
@@ -87,15 +88,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
 
     if query.data == "confirm_vip":
+        # Inline button for sending screenshot
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "VIP confirmed!",
+            "✅ VIP confirmed! Please send your screenshot.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
-        await query.message.reply_text("Please send your screenshot now as a photo.")
+        await query.message.reply_text("📸 Please send your screenshot now as a photo.")
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,11 +116,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=f"📸 Screenshot from user {user_id}"
     )
 
-    # Keyboard with button linking to your admin profile
+    # Inline button linking to admin profile
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user with existing message + profile button
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
@@ -219,18 +220,13 @@ async def check_expired_vips(app):
             data = load_vip_data()
             now = datetime.utcnow()
 
-            # Remove expired VIPs
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
             for uid in expired:
-                await app.bot.send_message(
-                    chat_id=OWNER_ID,
-                    text=f"⚠️ VIP expired for user {uid}"
-                )
+                await app.bot.send_message(chat_id=OWNER_ID, text=f"⚠️ VIP expired for user {uid}")
                 del data[uid]
             if expired:
                 save_vip_data(data)
 
-            # Send daily report as simple text
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -272,4 +268,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-            )
+    )
