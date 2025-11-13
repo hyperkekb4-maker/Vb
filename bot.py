@@ -69,6 +69,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ Your VIP has expired.")
 
+# --- Button Callback ---
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -81,7 +82,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "Please continue:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -92,7 +92,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "Please continue:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -100,6 +99,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot.add(user_id)
         await query.message.reply_text("Please send your screenshot now as a photo.")
 
+# --- Handle Photos ---
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
 
