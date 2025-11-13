@@ -151,75 +151,81 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
         report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
-    # Send text report
     await update.message.reply_text("\n".join(report_lines))
 
-    # Send JSON backup file
-    json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
-    json_bytes.name = "vip_backup.json"
-    await update.message.reply_document(chat_id=OWNER_ID, document=json_bytes, caption="💾 VIP Backup JSON")
 
-
-async def import_vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
         return
 
-    if update.message.document:
-        file = await update.message.document.get_file()
-        file_path = f"/tmp/{update.message.document.file_name}"
-        await file.download_to_drive(file_path)
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            save_vip_data(data)
-            await update.message.reply_text("✅ VIP list imported successfully from file!")
-        except Exception as e:
-            await update.message.reply_text(f"❌ Failed to import: {e}")
+    data = load_vip_data()
+    if not data:
+        await update.message.reply_text("No VIPs found.")
         return
 
-    await update.message.reply_text("Please send the VIP JSON file with this command.")
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        report_lines.append(f"{uid}:{days_left}")
+
+    await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
+
+
+async def import_vip_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        return  # ignore non-owner messages
+
+    lines = update.message.text.strip().splitlines()
+    data = {}
+    for line in lines:
+        if ":" not in line:
+            continue
+        uid, days_str = line.split(":", 1)
+        try:
+            days = int(days_str)
+            expiry = datetime.utcnow() + timedelta(days=days)
+            data[uid.strip()] = expiry.isoformat()
+        except ValueError:
+            continue
+
+    save_vip_data(data)
+    await update.message.reply_text("✅ VIP list imported successfully from text!")
 
 
 # --- Background Task ---
 async def check_expired_vips(app):
     while True:
-        await asyncio.sleep(86400)  # every 24 hours
-        data = load_vip_data()
-        now = datetime.utcnow()
+        try:
+            await asyncio.sleep(86400)  # every 24 hours
+            data = load_vip_data()
+            now = datetime.utcnow()
 
-        # Remove expired VIPs
-        expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
-        for uid in expired:
-            await app.bot.send_message(
-                chat_id=OWNER_ID,
-                text=f"⚠️ VIP expired for user {uid}"
-            )
-            del data[uid]
-        if expired:
-            save_vip_data(data)
+            # Remove expired VIPs
+            expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
+            for uid in expired:
+                await app.bot.send_message(
+                    chat_id=OWNER_ID,
+                    text=f"⚠️ VIP expired for user {uid}"
+                )
+                del data[uid]
+            if expired:
+                save_vip_data(data)
 
-        # Send daily report
-        if data:
-            report_lines = []
-            for uid, expiry in data.items():
-                days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-                report_lines.append(f"ID: {uid} | Days left: {days_left}")
+            # Send daily report as text
+            if data:
+                report_lines = []
+                for uid, expiry in data.items():
+                    days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+                    report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
-            # Text report
-            await app.bot.send_message(
-                chat_id=OWNER_ID,
-                text="📊 Daily VIP Report:\n" + "\n".join(report_lines)
-            )
+                await app.bot.send_message(
+                    chat_id=OWNER_ID,
+                    text="📊 Daily VIP Report:\n" + "\n".join(report_lines)
+                )
 
-            # JSON backup
-            json_bytes = io.BytesIO(json.dumps(data, indent=2).encode("utf-8"))
-            json_bytes.name = "vip_backup.json"
-            await app.bot.send_document(
-                chat_id=OWNER_ID,
-                document=json_bytes,
-                caption="💾 Daily VIP Backup JSON"
-            )
+        except Exception as e:
+            print(f"Error in VIP checker: {e}")
 
 
 # --- Main App ---
@@ -230,7 +236,8 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
-    app.add_handler(CommandHandler("importlist", import_vip_list))
+    app.add_handler(CommandHandler("exportvip", export_vip))
+    app.add_handler(MessageHandler(filters.TEXT & filters.User(OWNER_ID), import_vip_text))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
