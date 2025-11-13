@@ -56,22 +56,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Buy VIP":
-    keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-
-    vip_text = (
-        "After depositing to Wallet, send the screenshot below, usually less than 30 minutes is confirmed\n\n"
-        "• 1 Month - 200$  (300$)\n\n"
-        "USDT (TRC-20):\n"
-        "T\u200Bs\u200Bx\u200Bv\u200BZ\u200Bs\u200B9\u200B6\u200Bs\u200Bc\u200By\u200Bp\u200BQ\u200B2\u200BB\u200Bc\u200B6\u200B7\u200Bc\u200B4\u200Bj\u200Bq\u200BN\u200B6\u200B8\u200Bf\u200Bd\u200BN\u200BV\u200BC\u200BJ\u200BN\u200BK\u200Bw\n\n"
-        "USDT (BNB):\n"
-        "0\u200Bx\u200Ba\u200B8\u200BF\u200B3\u200B8\u200B0\u200BE\u200Bf\u200B9\u200BB\u200BC\u200B7\u200B6\u200B6\u200B9\u200B4\u200B1\u200B8\u200BB\u200B9\u200Ba\u200B8\u200Be\u200B4\u200Bb\u200BA\u200B3\u200B8\u200BE\u200BA\u200B2\u200Bd\u200B2\u200B5\u200B2\u200Bd\u200B0\u200B0\u200B0\u200B3"
-    )
-
-    await update.message.reply_text(
-        vip_text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-        # parse_mode removed, no HTML needed
-    )
+        keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+        await update.message.reply_text(
+            "1 Month - 200$.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
