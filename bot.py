@@ -17,17 +17,19 @@ OWNER_ID = 8448843919  # Your Telegram ID
 VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
-# --- Helper functions ---
 
+# --- Helper functions ---
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
             return json.load(f)
     return {}
 
+
 def save_vip_data(data):
     with open(VIP_FILE, "w") as f:
         json.dump(data, f, indent=2)
+
 
 def get_days_left(user_id):
     data = load_vip_data()
@@ -37,33 +39,39 @@ def get_days_left(user_id):
     remaining = (expiry - datetime.utcnow()).days
     return max(0, remaining)
 
-# --- Bot Handlers ---
 
+# --- Bot Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Buy VIP", "📱 My Account"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Welcome! Press the button below:", reply_markup=reply_markup)
 
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.message.from_user.id
 
+    if user_id in waiting_for_screenshot:
+        await update.message.reply_text("Please send your screenshot as a photo, not text.")
+        return
+
     if text == "Buy VIP":
-        keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+    keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
 
-        vip_text = (
-            "After depositing to Wallet, send the screenshot below, usually less than 30 minutes is confirmed\n\n"
-            "• 1 Month - 200$  (300$)\n\n"
-            "USDT (TRC-20):\n"
-            "TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw\n\n"
-            "USDT (BNB):\n"
-            "0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003"
-        )
+    vip_text = (
+        "After depositing to Wallet, send the screenshot below, usually less than 30 minutes is confirmed\n\n"
+        "• 1 Month - 200$  (300$)\n\n"
+        "USDT (TRC-20):\n"
+        "T\u200Bs\u200Bx\u200Bv\u200BZ\u200Bs\u200B9\u200B6\u200Bs\u200Bc\u200By\u200Bp\u200BQ\u200B2\u200BB\u200Bc\u200B6\u200B7\u200Bc\u200B4\u200Bj\u200Bq\u200BN\u200B6\u200B8\u200Bf\u200Bd\u200BN\u200BV\u200BC\u200BJ\u200BN\u200BK\u200Bw\n\n"
+        "USDT (BNB):\n"
+        "0\u200Bx\u200Ba\u200B8\u200BF\u200B3\u200B8\u200B0\u200BE\u200Bf\u200B9\u200BB\u200BC\u200B7\u200B6\u200B6\u200B9\u200B4\u200B1\u200B8\u200BB\u200B9\u200Ba\u200B8\u200Be\u200B4\u200Bb\u200BA\u200B3\u200B8\u200BE\u200BA\u200B2\u200Bd\u200B2\u200B5\u200B2\u200Bd\u200B0\u200B0\u200B0\u200B3"
+    )
 
-        await update.message.reply_text(
-            vip_text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    await update.message.reply_text(
+        vip_text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+        # parse_mode removed, no HTML needed
+    )
 
     elif text == "📱 My Account":
         days = get_days_left(user_id)
@@ -73,6 +81,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"💎 You have {days} days of VIP left.")
         else:
             await update.message.reply_text("⚠️ Your VIP has expired.")
+
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -89,6 +98,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
         await query.message.reply_text("Please send your screenshot now as a photo.")
+
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -110,7 +120,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user with confirmation + profile button
+    # Reply to user with existing message + profile button
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
@@ -118,8 +128,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
-# --- Admin Commands ---
 
+# --- Admin Commands ---
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized to use this command.")
@@ -139,6 +149,7 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
+
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
@@ -156,6 +167,7 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("\n".join(report_lines))
 
+
 async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
@@ -172,6 +184,7 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report_lines.append(f"{uid}:{days_left}")
 
     await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
+
 
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -199,8 +212,8 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_vip_data(data)
     await update.message.reply_text("✅ VIP list imported successfully!")
 
-# --- Background Task ---
 
+# --- Background Task ---
 async def check_expired_vips(app):
     while True:
         try:
@@ -234,8 +247,8 @@ async def check_expired_vips(app):
         except Exception as e:
             print(f"Error in VIP checker: {e}")
 
-# --- Main App ---
 
+# --- Main App ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -245,7 +258,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
@@ -261,4 +274,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-            )
+    )
