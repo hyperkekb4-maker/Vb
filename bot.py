@@ -57,9 +57,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+        vip_text = (
+            "After depositing to Wallet, send the screenshot below, usually less than 30 minutes is confirmed\n\n"
+            "*• 1 Month - 200$ (300$)*\n\n"
+            "USDT (TRC-20):\n"
+            "`TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw`\n\n"
+            "USDT (BNB):\n"
+            "`0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003`"
+        )
         await update.message.reply_text(
-            "1 Month - 200$.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            vip_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="MarkdownV2"
         )
 
     elif text == "📱 My Account":
@@ -263,4 +272,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        )
+)
