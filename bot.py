@@ -3,18 +3,11 @@ import json
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
+    Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 )
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    MessageHandler, ContextTypes, filters
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -64,16 +57,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-
-        # ✅ Step 1: Send plain copyable text (no keyboard)
         await update.message.reply_text(
-            "Hello 👋\n\n1 Month - 200$.",
-            protect_content=False
-        )
-
-        # ✅ Step 2: Send the button separately
-        await update.message.reply_text(
-            "Press below to continue 👇",
+            "1 Month - 200$.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -278,4 +263,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+        )
