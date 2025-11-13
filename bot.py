@@ -3,11 +3,19 @@ import json
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
 )
+from telegram.constants import ParseMode  # ✅ v20+ import
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
-    MessageHandler, ContextTypes, filters
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,  # ✅ lowercase in v20+
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -57,9 +65,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
+        # ✅ Copiable message with greeting
         await update.message.reply_text(
-            "1 Month - 200$.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            "Hello\n<pre>1 Month - 200$.</pre>",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.HTML,
+            protect_content=False  # ensures message can be copied
         )
 
     elif text == "📱 My Account":
@@ -109,7 +120,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user with existing message + profile button
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
@@ -210,18 +220,13 @@ async def check_expired_vips(app):
             data = load_vip_data()
             now = datetime.utcnow()
 
-            # Remove expired VIPs
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
             for uid in expired:
-                await app.bot.send_message(
-                    chat_id=OWNER_ID,
-                    text=f"⚠️ VIP expired for user {uid}"
-                )
+                await app.bot.send_message(chat_id=OWNER_ID, text=f"⚠️ VIP expired for user {uid}")
                 del data[uid]
             if expired:
                 save_vip_data(data)
 
-            # Send daily report as simple text
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -241,7 +246,6 @@ async def check_expired_vips(app):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
@@ -251,7 +255,6 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background VIP checker
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
 
