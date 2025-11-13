@@ -12,7 +12,7 @@ from telegram.ext import (
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = 8448843919  # Your Telegram ID
+OWNER_ID = 8448843919  # Your Telegram IDs
 
 VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
