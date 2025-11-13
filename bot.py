@@ -1,6 +1,5 @@
 import os
 import json
-import io
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
@@ -172,11 +171,18 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
 
 
-async def import_vip_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        return  # ignore non-owner messages
+        await update.message.reply_text("You are not authorized.")
+        return
 
-    lines = update.message.text.strip().splitlines()
+    if not context.args:
+        await update.message.reply_text("Usage: /importvip <paste your VIP list text>")
+        return
+
+    # Combine all args in case the list spans multiple lines
+    text_data = " ".join(context.args).replace("\\n", "\n")
+    lines = text_data.strip().splitlines()
     data = {}
     for line in lines:
         if ":" not in line:
@@ -190,7 +196,7 @@ async def import_vip_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
 
     save_vip_data(data)
-    await update.message.reply_text("✅ VIP list imported successfully from text!")
+    await update.message.reply_text("✅ VIP list imported successfully!")
 
 
 # --- Background Task ---
@@ -212,7 +218,7 @@ async def check_expired_vips(app):
             if expired:
                 save_vip_data(data)
 
-            # Send daily report as text
+            # Send daily report as simple text
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -237,7 +243,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(OWNER_ID), import_vip_text))
+    app.add_handler(CommandHandler("importvip", import_vip))
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
