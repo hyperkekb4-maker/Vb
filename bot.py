@@ -123,10 +123,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
-    # Restore main menu after screenshot
+    # Restore main menu with a button linking to your profile
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
+    ])
+
     await update.message.reply_text(
         "✅ Screenshot received! The VIP flow has restarted.",
-        reply_markup=main_menu()
+        reply_markup=keyboard
     )
 
 # ---------------- Admin Commands ---------------- #
@@ -268,4 +272,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+        )
