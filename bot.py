@@ -98,18 +98,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
-    # Send to owner
+    # Send screenshot to admin
     await context.bot.send_photo(
         chat_id=OWNER_ID,
         photo=file.file_id,
         caption=f"📸 Screenshot from user {user_id}"
     )
 
-    # Keyboard with link to your profile
+    # Keyboard with button linking to your admin profile
     keyboard = [[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply to user
+    # Reply to user with existing message + profile button
     await update.message.reply_text(
         "✅ Screenshot received! Thank you.\nPress 'Buy VIP' again to continue.",
         reply_markup=reply_markup
@@ -221,7 +221,7 @@ async def check_expired_vips(app):
             if expired:
                 save_vip_data(data)
 
-            # Send daily report as text
+            # Send daily report as simple text
             if data:
                 report_lines = []
                 for uid, expiry in data.items():
@@ -263,4 +263,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+        )
