@@ -82,6 +82,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
+            "Send your screenshot:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -92,6 +93,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
+            "Send your screenshot:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
