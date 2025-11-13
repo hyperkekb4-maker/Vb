@@ -8,14 +8,13 @@ from telegram import (
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
 )
-from telegram.constants import ParseMode  # ✅ v20+ import
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
     ContextTypes,
-    filters,  # ✅ lowercase in v20+
+    filters,  # ✅ lowercase for v20+
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -65,12 +64,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Buy VIP":
         keyboard = [[InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")]]
-        # ✅ Copiable message with greeting
+        # ✅ 100% copyable plain text message
         await update.message.reply_text(
-            "Hello\n<pre>1 Month - 200$.</pre>",
+            "Hello 👋\n\n1 Month - 200$.",
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode=ParseMode.HTML,
-            protect_content=False  # ensures message can be copied
+            protect_content=False  # ensure copy/forward works
         )
 
     elif text == "📱 My Account":
