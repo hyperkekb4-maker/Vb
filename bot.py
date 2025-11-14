@@ -117,8 +117,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
+    # Build profile link if username exists
     profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
 
+    # Send screenshot + user info to admin
     caption = (
         f"📸 Screenshot Received\n\n"
         f"👤 **User Info**\n"
@@ -137,12 +139,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
+    # Return menu to user + your profile link
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
 
     await update.message.reply_text(
-        "✅ Payment received. Usually less than 30 minutes for confirmation. Contact support if there is any problem.",
+        "✅ Payment received. Usually less than 30 minutes to confirm. Contact support if there are issues.",
         reply_markup=keyboard
     )
 
@@ -150,7 +153,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        await update.message.reply_text("You are not authorized to use this command.")
+        await update.message.reply_text("You are not authorized.")
         return
 
     try:
@@ -167,6 +170,7 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
+    # Notify the user
     try:
         await context.bot.send_message(
             chat_id=int(user_id),
@@ -225,7 +229,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
-    data = load_vip_data()  # Keep existing VIPs
+    data = load_vip_data()  # Load existing VIPs
 
     added_count = 0
     for line in lines:
@@ -233,7 +237,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
         uid, days_str = line.split(":", 1)
         try:
-            days = int(days_str) + 1  # Add 1 day
+            days = int(days_str) + 1  # Add 1 day to imported VIPs
             expiry = datetime.utcnow() + timedelta(days=days)
             data[uid.strip()] = expiry.isoformat()
             added_count += 1
@@ -299,15 +303,20 @@ async def check_expired_vips(app):
 # ---------------- Health Endpoint ---------------- #
 
 async def health(request):
-    return web.Response(text="OK")  # UptimeRobot pings this
+    return web.Response(text="OK")
+
+async def start_health_server():
+    app = web.Application()
+    app.add_routes([web.get("/health", health)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
 
 # ---------------- Main App ---------------- #
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # Register health endpoint
-    app.web_app.router.add_get("/health", health)
 
     # Command Handlers
     app.add_handler(CommandHandler("start", start))
@@ -324,9 +333,10 @@ if __name__ == "__main__":
     # Callback Query Handler
     app.add_handler(CallbackQueryHandler(button_callback))
 
-    # Start background VIP checker
+    # Start background VIP checker and health server
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
+        asyncio.create_task(start_health_server())
 
     app.post_init = on_startup
 
