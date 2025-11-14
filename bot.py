@@ -151,7 +151,23 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     expiry = datetime.utcnow() + timedelta(days=days)
     data[user_id] = expiry.isoformat()
     save_vip_data(data)
+
+    # Notify admin
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
+
+    # Notify the user
+    try:
+        await context.bot.send_message(
+            chat_id=int(user_id),
+            text=(
+                f"💎 Your VIP subscription is confirmed!\n"
+                f"You now have **{days} days** access to the VIP channel.\n\n"
+                f"Welcome aboard! 🚀"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Couldn't send message to user {user_id}. Error: {e}")
 
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -272,4 +288,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        )
+    )
