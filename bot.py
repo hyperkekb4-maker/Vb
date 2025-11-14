@@ -144,7 +144,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
 
     await update.message.reply_text(
-        "✅ Screenshot received! Thank you.",
+        "✅ payment received. usually less than 30 minutes its confirmed.you contact the dupport if you had sny problem",
         reply_markup=keyboard
     )
 
