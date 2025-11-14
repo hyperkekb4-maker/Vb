@@ -228,21 +228,23 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
-    data = {}
+    data = load_vip_data()  # Load existing VIPs to not overwrite
 
+    added_count = 0
     for line in lines:
         if ":" not in line:
             continue
         uid, days_str = line.split(":", 1)
         try:
-            days = int(days_str)
+            days = int(days_str) + 1  # Add 1 day to each imported VIP
             expiry = datetime.utcnow() + timedelta(days=days)
             data[uid.strip()] = expiry.isoformat()
+            added_count += 1
         except ValueError:
             continue
 
     save_vip_data(data)
-    await update.message.reply_text("✅ VIP list imported successfully!")
+    await update.message.reply_text(f"✅ VIP list imported successfully! Added/updated {added_count} users (+1 day each).")
 
 # ---------------- Background Task ---------------- #
 
