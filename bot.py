@@ -12,11 +12,10 @@ from telegram.ext import (
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = 8448843919
+OWNER_ID = 8448843919  # Your Telegram ID
 VIP_FILE = "vip_data.json"
 
 waiting_for_screenshot = set()
-last_bot_message = {}   # <----- NEW
 
 # ---------------- Helper functions ---------------- #
 
@@ -38,27 +37,6 @@ def get_days_left(user_id):
     remaining = (expiry - datetime.utcnow()).days
     return max(0, remaining)
 
-# ------------- Clean message sender (Deletes old bot message) ------------- #
-
-async def send_clean_message(chat_id, text, context, reply_markup=None):
-    # delete previous message
-    if chat_id in last_bot_message:
-        try:
-            await context.bot.delete_message(
-                chat_id=chat_id,
-                message_id=last_bot_message[chat_id]
-            )
-        except:
-            pass
-
-    sent = await context.bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    last_bot_message[chat_id] = sent.message_id
-
 # ---------------- Main Menu ---------------- #
 
 def main_menu():
@@ -68,10 +46,8 @@ def main_menu():
 # ---------------- Bot Handlers ---------------- #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_clean_message(
-        chat_id=update.message.chat_id,
-        text="Welcome! Press the button below:",
-        context=context,
+    await update.message.reply_text(
+        "Welcome! Press the button below:",
         reply_markup=main_menu()
     )
 
@@ -79,7 +55,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.message.from_user.id
 
-    # Buy VIP
+    # Always reset state if user presses "Buy VIP"
     if text == "Buy VIP":
         if user_id in waiting_for_screenshot:
             waiting_for_screenshot.remove(user_id)
@@ -88,35 +64,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")],
             [InlineKeyboardButton("Confirm VIP 2", callback_data="confirm_vip_2")]
         ]
-
-        await send_clean_message(
-            chat_id=user_id,
-            text="1 Month - 200$.",
-            context=context,
+        await update.message.reply_text(
+            "1 Month - 200$.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
-    # My Account
     if text == "📱 My Account":
         days = get_days_left(user_id)
         if days is None:
-            msg = "You don't have an active VIP subscription."
+            await update.message.reply_text("You don't have an active VIP subscription.")
         elif days > 0:
-            msg = f"💎 You have {days} days of VIP left."
+            await update.message.reply_text(f"💎 You have {days} days of VIP left.")
         else:
-            msg = "⚠️ Your VIP has expired."
-
-        await send_clean_message(user_id, msg, context)
+            await update.message.reply_text("⚠️ Your VIP has expired.")
         return
 
-    # Wrong content
     if user_id in waiting_for_screenshot:
-        await send_clean_message(
-            user_id,
-            "Please send your screenshot as a photo, not text.",
-            context
-        )
+        await update.message.reply_text("Please send your screenshot as a photo, not text.")
 
 # ---------------- Button Callback ---------------- #
 
@@ -125,27 +90,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
-    # Confirm VIP buttons
     if query.data in ["confirm_vip", "confirm_vip_2"]:
-        await send_clean_message(user_id, "VIP confirmed!", context)
-
+        await query.message.reply_text("VIP confirmed!")
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-
-        await send_clean_message(
-            user_id,
+        await query.message.reply_text(
             "Send your screenshot:",
-            context,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-    # Send screenshot button
     elif query.data == "send_screenshot":
         waiting_for_screenshot.add(user_id)
-        await send_clean_message(
-            user_id,
-            "Please send your screenshot now as a photo.",
-            context
-        )
+        await query.message.reply_text("Please send your screenshot now as a photo.")
 
 # ---------------- Handle Photos ---------------- #
 
@@ -153,11 +108,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
 
     if user_id not in waiting_for_screenshot:
-        await send_clean_message(
-            user_id,
-            "I wasn't expecting a photo. Please press 'Buy VIP' first.",
-            context
-        )
+        await update.message.reply_text("I wasn't expecting a photo. Please press 'Buy VIP' first.")
         return
 
     photo_file = update.message.photo[-1]
@@ -172,14 +123,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
+    # Restore main menu with a button linking to your profile
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
 
-    await send_clean_message(
-        user_id,
+    await update.message.reply_text(
         "✅ Screenshot received! The VIP flow has restarted.",
-        context,
         reply_markup=keyboard
     )
 
@@ -187,66 +137,80 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        return await send_clean_message(update.message.chat_id, "Not authorized.", context)
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
 
     try:
         user_id = str(context.args[0])
         days = int(context.args[1])
-    except:
-        return await send_clean_message(update.message.chat_id, "Usage: /addvip <user_id> <days>", context)
+    except (IndexError, ValueError):
+        await update.message.reply_text("Usage: /addvip <user_id> <days>")
+        return
 
     data = load_vip_data()
     expiry = datetime.utcnow() + timedelta(days=days)
     data[user_id] = expiry.isoformat()
     save_vip_data(data)
 
-    await send_clean_message(update.message.chat_id, f"VIP added for {user_id} ({days} days).", context)
+    # Notify admin
+    await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
+    # Notify the user
     try:
         await context.bot.send_message(
             chat_id=int(user_id),
-            text=f"💎 Your VIP subscription is confirmed!\nYou now have **{days} days** access.",
+            text=(
+                f"💎 Your VIP subscription is confirmed!\n"
+                f"You now have **{days} days** access to the VIP channel.\n\n"
+                f"Welcome aboard! 🚀"
+            ),
             parse_mode="Markdown"
         )
-    except:
-        pass
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Couldn't send message to user {user_id}. Error: {e}")
 
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        return await send_clean_message(update.message.chat_id, "Not authorized.", context)
+        await update.message.reply_text("You are not authorized.")
+        return
 
     data = load_vip_data()
     if not data:
-        return await send_clean_message(update.message.chat_id, "No VIPs found.", context)
+        await update.message.reply_text("No VIPs found.")
+        return
 
-    report = "\n".join(
-        f"ID: {uid} | Days left: {(datetime.fromisoformat(expiry) - datetime.utcnow()).days}"
-        for uid, expiry in data.items()
-    )
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        report_lines.append(f"ID: {uid} | Days left: {days_left}")
 
-    await send_clean_message(update.message.chat_id, report, context)
+    await update.message.reply_text("\n".join(report_lines))
 
 async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        return await send_clean_message(update.message.chat_id, "Not authorized.", context)
+        await update.message.reply_text("You are not authorized.")
+        return
 
     data = load_vip_data()
     if not data:
-        return await send_clean_message(update.message.chat_id, "No VIPs found.", context)
+        await update.message.reply_text("No VIPs found.")
+        return
 
-    report = "\n".join(
-        f"{uid}:{(datetime.fromisoformat(expiry) - datetime.utcnow()).days}"
-        for uid, expiry in data.items()
-    )
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        report_lines.append(f"{uid}:{days_left}")
 
-    await send_clean_message(update.message.chat_id, "💾 VIP List:\n" + report, context)
+    await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
 
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        return await send_clean_message(update.message.chat_id, "Not authorized.", context)
+        await update.message.reply_text("You are not authorized.")
+        return
 
     if not context.args:
-        return await send_clean_message(update.message.chat_id, "Usage: /importvip <data>", context)
+        await update.message.reply_text("Usage: /importvip <paste your VIP list text>")
+        return
 
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
@@ -260,48 +224,59 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             days = int(days_str)
             expiry = datetime.utcnow() + timedelta(days=days)
             data[uid.strip()] = expiry.isoformat()
-        except:
+        except ValueError:
             continue
 
     save_vip_data(data)
-    await send_clean_message(update.message.chat_id, "VIP list imported!", context)
+    await update.message.reply_text("✅ VIP list imported successfully!")
 
-# ---------------- Background VIP Checker ---------------- #
+# ---------------- Background Task ---------------- #
 
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(86400)
+            await asyncio.sleep(86400)  # daily
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
 
             for uid in expired:
+                await app.bot.send_message(chat_id=OWNER_ID, text=f"⚠️ VIP expired for user {uid}")
                 del data[uid]
-                await app.bot.send_message(chat_id=OWNER_ID, text=f"VIP expired for {uid}")
 
             if expired:
                 save_vip_data(data)
 
+            if data:
+                report_lines = []
+                for uid, expiry in data.items():
+                    days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+                    report_lines.append(f"ID: {uid} | Days left: {days_left}")
+                await app.bot.send_message(chat_id=OWNER_ID, text="📊 Daily VIP Report:\n" + "\n".join(report_lines))
+
         except Exception as e:
-            print("VIP CHECK ERROR:", e)
+            print(f"Error in VIP checker: {e}")
 
 # ---------------- Main App ---------------- #
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Command Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
 
+    # Message Handlers
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
+    # Callback Query Handler
     app.add_handler(CallbackQueryHandler(button_callback))
 
+    # Start background VIP checker
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
 
