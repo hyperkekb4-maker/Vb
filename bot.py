@@ -53,7 +53,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    user_id = update.message.from_user.id
+    user = update.message.from_user
+    user_id = user.id
 
     # Always reset state if user presses "Buy VIP"
     if text == "Buy VIP":
@@ -105,7 +106,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- Handle Photos ---------------- #
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
+    user = update.message.from_user
+    user_id = user.id
 
     if user_id not in waiting_for_screenshot:
         await update.message.reply_text("I wasn't expecting a photo. Please press 'Buy VIP' first.")
@@ -114,22 +116,35 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
-    # Send screenshot to admin
+    # Build profile link if username exists
+    profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
+
+    # Send screenshot + user info to admin
+    caption = (
+        f"📸 Screenshot Received\n\n"
+        f"👤 **User Info**\n"
+        f"ID: `{user.id}`\n"
+        f"Username: @{user.username if user.username else 'N/A'}\n"
+        f"Name: {user.full_name}\n"
+        f"Profile: {profile_link}"
+    )
+
     await context.bot.send_photo(
         chat_id=OWNER_ID,
         photo=file.file_id,
-        caption=f"📸 Screenshot from user {user_id}"
+        caption=caption,
+        parse_mode="Markdown"
     )
 
     waiting_for_screenshot.remove(user_id)
 
-    # Restore main menu with a button linking to your profile
+    # Return menu to user + your profile link
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
 
     await update.message.reply_text(
-        "✅ Screenshot received! The VIP flow has restarted.",
+        "✅ Screenshot received! Thank you.",
         reply_markup=keyboard
     )
 
@@ -152,7 +167,6 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data[user_id] = expiry.isoformat()
     save_vip_data(data)
 
-    # Notify admin
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
     # Notify the user
