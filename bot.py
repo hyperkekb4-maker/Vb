@@ -246,6 +246,32 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_vip_data(data)
     await update.message.reply_text(f"✅ VIP list imported successfully! Added/updated {added_count} users (+1 day each).")
 
+# ---------------- Message Users by ID ---------------- #
+
+async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    try:
+        user_id = int(context.args[0])
+        message_text = " ".join(context.args[1:])
+        if not message_text:
+            await update.message.reply_text("Usage: /message <user_id> <message>")
+            return
+    except (IndexError, ValueError):
+        await update.message.reply_text("Usage: /message <user_id> <message>")
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=message_text
+        )
+        await update.message.reply_text(f"✅ Message sent to user {user_id}.")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Failed to send message to {user_id}. Error: {e}")
+
 # ---------------- Background Task ---------------- #
 
 async def check_expired_vips(app):
@@ -284,6 +310,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
+    app.add_handler(CommandHandler("message", message_user))  # New command
 
     # Message Handlers
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
