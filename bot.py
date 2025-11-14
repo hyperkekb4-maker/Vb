@@ -9,6 +9,7 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters
 )
+from aiohttp import web  # For health endpoint
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
@@ -116,10 +117,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
-    # Build profile link if username exists
     profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
 
-    # Send screenshot + user info to admin
     caption = (
         f"📸 Screenshot Received\n\n"
         f"👤 **User Info**\n"
@@ -138,13 +137,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
-    # Return menu to user + your profile link
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
 
     await update.message.reply_text(
-        "✅ payment received. usually less than 30 minutes its confirmed.you contact the dupport if you had sny problem",
+        "✅ Payment received. Usually less than 30 minutes for confirmation. Contact support if there is any problem.",
         reply_markup=keyboard
     )
 
@@ -169,7 +167,6 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
-    # Notify the user
     try:
         await context.bot.send_message(
             chat_id=int(user_id),
@@ -228,7 +225,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text_data = " ".join(context.args).replace("\\n", "\n")
     lines = text_data.strip().splitlines()
-    data = load_vip_data()  # Load existing VIPs to not overwrite
+    data = load_vip_data()  # Keep existing VIPs
 
     added_count = 0
     for line in lines:
@@ -236,7 +233,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
         uid, days_str = line.split(":", 1)
         try:
-            days = int(days_str) + 1  # Add 1 day to each imported VIP
+            days = int(days_str) + 1  # Add 1 day
             expiry = datetime.utcnow() + timedelta(days=days)
             data[uid.strip()] = expiry.isoformat()
             added_count += 1
@@ -250,7 +247,7 @@ async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
-        await update.message.reply_text("You are not authorized to use this command.")
+        await update.message.reply_text("You are not authorized.")
         return
 
     try:
@@ -299,10 +296,18 @@ async def check_expired_vips(app):
         except Exception as e:
             print(f"Error in VIP checker: {e}")
 
+# ---------------- Health Endpoint ---------------- #
+
+async def health(request):
+    return web.Response(text="OK")  # UptimeRobot pings this
+
 # ---------------- Main App ---------------- #
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Register health endpoint
+    app.web_app.router.add_get("/health", health)
 
     # Command Handlers
     app.add_handler(CommandHandler("start", start))
@@ -310,7 +315,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
-    app.add_handler(CommandHandler("message", message_user))  # New command
+    app.add_handler(CommandHandler("message", message_user))
 
     # Message Handlers
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
