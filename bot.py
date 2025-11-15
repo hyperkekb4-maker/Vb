@@ -19,6 +19,7 @@ VIP_FILE = "vip_data.json"
 waiting_for_screenshot = set()
 
 # ---------------- Helper functions ----------------
+
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
@@ -38,11 +39,13 @@ def get_days_left(user_id):
     return max(0, remaining)
 
 # ---------------- Main Menu ----------------
+
 def main_menu():
     keyboard = [["Buy VIP", "📱 My Account"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # ---------------- Bot Handlers ----------------
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Welcome! Press the button below:",
@@ -54,7 +57,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
 
-    # Reset state if user presses "Buy VIP"
+    # Always reset state if user presses "Buy VIP"
     if text == "Buy VIP":
         if user_id in waiting_for_screenshot:
             waiting_for_screenshot.remove(user_id)
@@ -83,6 +86,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please send your screenshot as a photo, not text.")
 
 # ---------------- Button Callback ----------------
+
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -101,6 +105,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Please send your screenshot now as a photo.")
 
 # ---------------- Handle Photos ----------------
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
@@ -112,8 +117,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
+    # Build profile link if username exists
     profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
 
+    # Send screenshot + user info to admin
     caption = (
         f"📸 Screenshot Received\n\n"
         f"👤 User Info\n"
@@ -132,6 +139,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
+    # Return menu to user + your profile link
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
@@ -142,6 +150,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ---------------- Admin Commands ----------------
+
 async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
@@ -209,57 +218,47 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
 
+# ---------------- Updated /importvip ----------------
+
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
         return
 
-    # Get text from reply or command args
-    if update.message.reply_to_message and update.message.reply_to_message.text:
-        text_data = update.message.reply_to_message.text
-    elif context.args:
+    # Get text from either command args or message
+    if context.args:
         text_data = " ".join(context.args)
     else:
-        await update.message.reply_text("Usage: reply to a VIP list message or paste your VIP list text.")
+        text_data = update.message.text
+
+    # Remove the command itself if present
+    if text_data.startswith("/importvip"):
+        text_data = text_data[len("/importvip"):].strip()
+
+    if not text_data:
+        await update.message.reply_text("Usage: /importvip <paste your VIP list text>")
         return
 
     lines = text_data.strip().splitlines()
-    data = load_vip_data()  # Load existing VIPs
+    data = load_vip_data()
 
     added_count = 0
     for line in lines:
-        line = line.strip()
-        if not line:
+        if ":" not in line:
             continue
-        # Handle "ID: 12345 | Days left: 30"
-        if "|" in line:
-            try:
-                parts = line.split("|")
-                uid_part = parts[0].strip()  # "ID: 12345"
-                days_part = parts[1].strip()  # "Days left: 30"
-
-                uid = uid_part.split(":", 1)[1].strip()
-                days = int(days_part.split(":", 1)[1].strip())
-            except Exception:
-                continue
-        # Handle "12345:30"
-        elif ":" in line:
-            try:
-                uid, days = line.split(":", 1)
-                uid = uid.strip()
-                days = int(days.strip())
-            except Exception:
-                continue
-        else:
+        uid, days_str = line.split(":", 1)
+        try:
+            days = int(days_str.strip()) + 1  # Add 1 day to imported VIPs
+            expiry = datetime.utcnow() + timedelta(days=days)
+            data[uid.strip()] = expiry.isoformat()
+            added_count += 1
+        except ValueError:
             continue
-
-        # Add +1 day as before
-        expiry = datetime.utcnow() + timedelta(days=days + 1)
-        data[uid] = expiry.isoformat()
-        added_count += 1
 
     save_vip_data(data)
     await update.message.reply_text(f"✅ VIP list imported successfully! Added/updated {added_count} users (+1 day each).")
+
+# ---------------- Message Users by ID ----------------
 
 async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -286,10 +285,11 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Failed to send message to {user_id}. Error: {e}")
 
 # ---------------- Background Task ----------------
+
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(60)  # check every 60 seconds
+            await asyncio.sleep(60)  # Check every minute (can be adjusted to daily)
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
@@ -312,6 +312,7 @@ async def check_expired_vips(app):
             print(f"Error in VIP checker: {e}")
 
 # ---------------- Health Endpoint ----------------
+
 async def health(request):
     return web.Response(text="OK")
 
@@ -324,6 +325,7 @@ async def start_health_server():
     await site.start()
 
 # ---------------- Main App ----------------
+
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -355,4 +357,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-            )
+    )
