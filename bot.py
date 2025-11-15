@@ -58,7 +58,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
 
-    # Always reset state if user presses "Buy VIP"
     if text == "Buy VIP":
         if user_id in waiting_for_screenshot:
             waiting_for_screenshot.remove(user_id)
@@ -118,7 +117,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
 
-    # Build profile link
     profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
 
     caption = (
@@ -169,7 +167,6 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
 
-    # Notify the user
     try:
         await context.bot.send_message(
             chat_id=int(user_id),
@@ -184,7 +181,7 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
-# -------------- REMOVE VIP COMMAND ----------------
+# -------------- REMOVE VIP (No user notification) ----------------
 
 async def remove_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -208,13 +205,7 @@ async def remove_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP removed for user {user_id}.")
 
-    try:
-        await context.bot.send_message(
-            chat_id=int(user_id),
-            text="⚠️ Your VIP subscription has been removed by the administrator."
-        )
-    except Exception:
-        pass
+    # (Removed user notification entirely)
 
 
 # --------------------------------------------------
@@ -358,23 +349,18 @@ async def start_health_server():
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Command Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
-    app.add_handler(CommandHandler("removevip", remove_vip))  # <-- added
+    app.add_handler(CommandHandler("removevip", remove_vip))
     app.add_handler(CommandHandler("viplist", vip_list))
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
     app.add_handler(CommandHandler("message", message_user))
 
-    # Message Handlers
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-
-    # Callback Query Handler
     app.add_handler(CallbackQueryHandler(button_callback))
 
-    # Start background VIP checker and health server
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
         asyncio.create_task(start_health_server())
@@ -387,4 +373,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+            )
