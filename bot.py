@@ -57,7 +57,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
 
-    # Always reset state if user presses "Buy VIP"
+    # Reset state if user presses "Buy VIP"
     if text == "Buy VIP":
         if user_id in waiting_for_screenshot:
             waiting_for_screenshot.remove(user_id)
@@ -139,7 +139,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     waiting_for_screenshot.remove(user_id)
 
-    # Return menu to user + your profile link
+    # Return menu to user + profile link
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
     ])
@@ -197,7 +197,7 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     report_lines = []
     for uid, expiry in data.items():
         days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-        report_lines.append(f"ID: {uid} | Days left: {days_left}")
+        report_lines.append(f"{uid}:{days_left}")
 
     await update.message.reply_text("\n".join(report_lines))
 
@@ -278,7 +278,7 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(60)  # daily
+            await asyncio.sleep(60)  # adjust as needed (e.g., 86400 for daily)
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
@@ -291,11 +291,15 @@ async def check_expired_vips(app):
                 save_vip_data(data)
 
             if data:
+                # Daily VIP report in user_id:days_left format
                 report_lines = []
                 for uid, expiry in data.items():
                     days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-                    report_lines.append(f"ID: {uid} | Days left: {days_left}")
-                await app.bot.send_message(chat_id=OWNER_ID, text="📊 Daily VIP Report:\n" + "\n".join(report_lines))
+                    report_lines.append(f"{uid}:{days_left}")
+                await app.bot.send_message(
+                    chat_id=OWNER_ID,
+                    text="\n".join(report_lines)
+                )
 
         except Exception as e:
             print(f"Error in VIP checker: {e}")
