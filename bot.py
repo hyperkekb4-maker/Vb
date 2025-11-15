@@ -281,7 +281,7 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(60)  # every 60 seconds
+            await asyncio.sleep(86400)  # every 60 seconds
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
