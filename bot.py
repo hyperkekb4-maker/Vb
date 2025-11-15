@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import asyncio
 from telegram import (
@@ -214,41 +215,35 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     report_lines = []
     for uid, expiry in data.items():
         days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-        report_lines.append(f"{uid}:{days_left}")
+        report_lines.append(f"{uid} {days_left}")  # Space-separated for easy import
 
-    await update.message.reply_text("💾 VIP List:\n" + "\n".join(report_lines))
-
-# ---------------- Updated /importvip ----------------
+    await update.message.reply_text("💾 VIP List (ready for import):\n" + "\n".join(report_lines))
 
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("You are not authorized.")
         return
 
-    # Get text from either command args or message
-    if context.args:
-        text_data = " ".join(context.args)
-    else:
-        text_data = update.message.text
-
-    # Remove the command itself if present
-    if text_data.startswith("/importvip"):
-        text_data = text_data[len("/importvip"):].strip()
-
-    if not text_data:
+    if not context.args:
         await update.message.reply_text("Usage: /importvip <paste your VIP list text>")
         return
 
-    lines = text_data.strip().splitlines()
-    data = load_vip_data()
+    text_data = " ".join(context.args)
 
+    # Regex to capture user_id and days anywhere in the text
+    pattern = re.compile(r"(\d{5,20})\D+(\d{1,4})")  # IDs: 5-20 digits, Days: 1-4 digits
+    matches = pattern.findall(text_data)
+
+    if not matches:
+        await update.message.reply_text("⚠️ No valid VIP entries found in the text.")
+        return
+
+    data = load_vip_data()
     added_count = 0
-    for line in lines:
-        if ":" not in line:
-            continue
-        uid, days_str = line.split(":", 1)
+
+    for uid, days_str in matches:
         try:
-            days = int(days_str.strip()) + 1  # Add 1 day to imported VIPs
+            days = int(days_str) + 1
             expiry = datetime.utcnow() + timedelta(days=days)
             data[uid.strip()] = expiry.isoformat()
             added_count += 1
@@ -276,10 +271,7 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=message_text
-        )
+        await context.bot.send_message(chat_id=user_id, text=message_text)
         await update.message.reply_text(f"✅ Message sent to user {user_id}.")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Failed to send message to {user_id}. Error: {e}")
@@ -289,7 +281,7 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(60)  # Check every minute (can be adjusted to daily)
+            await asyncio.sleep(60)  # every 60 seconds
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
@@ -305,8 +297,12 @@ async def check_expired_vips(app):
                 report_lines = []
                 for uid, expiry in data.items():
                     days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
-                    report_lines.append(f"ID: {uid} | Days left: {days_left}")
-                await app.bot.send_message(chat_id=OWNER_ID, text="📊 Daily VIP Report:\n" + "\n".join(report_lines))
+                    report_lines.append(f"{uid} {days_left}")  # Space-separated for import
+
+                await app.bot.send_message(
+                    chat_id=OWNER_ID,
+                    text="💾 Daily VIP List (ready for import):\n" + "\n".join(report_lines)
+                )
 
         except Exception as e:
             print(f"Error in VIP checker: {e}")
@@ -357,4 +353,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 10000)),
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-    )
+                )
