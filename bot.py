@@ -74,7 +74,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "and the access link is sent automatically.",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
-        )
+        
 
 
 
