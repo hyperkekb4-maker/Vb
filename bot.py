@@ -67,7 +67,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Confirm VIP 2", callback_data="confirm_vip_2")]
         ]
         await update.message.reply_text(
-            "1 Month - 200$.",
+            "`1 Month – 200$`\n"
+    "After making a deposit, send us the screenshot."
+    "and the access link is sent automatically.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
