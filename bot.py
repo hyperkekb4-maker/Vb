@@ -63,8 +63,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             waiting_for_screenshot.remove(user_id)
 
         keyboard = [
-            [InlineKeyboardButton("Confirm VIP", callback_data="confirm_vip")],
-            [InlineKeyboardButton("Confirm VIP 2", callback_data="confirm_vip_2")]
+            [InlineKeyboardButton("USDT TRC-20", callback_data="confirm_vip")],
+            [InlineKeyboardButton("USDT-BNB", callback_data="confirm_vip_2")]
         ]
 
         # <- This must be indented inside the if block
