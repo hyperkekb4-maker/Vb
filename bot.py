@@ -74,7 +74,7 @@ await update.message.reply_text(
     parse_mode="HTML"
 )
 
-)
+
 
         )
         return
