@@ -97,7 +97,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot[user_id] = "TRC"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<code>Send your TRC-20 payment screenshot:</code>",
+            "<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
@@ -106,7 +106,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot[user_id] = "BNB"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<code>Send your BNB payment screenshot:</code>",
+            "<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
