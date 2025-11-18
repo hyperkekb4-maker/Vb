@@ -65,8 +65,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("USDT-BNB", callback_data="vip_bnb")]
         ]
         await update.message.reply_text(
-               "<blockquote>200$ - 1 Month</blockquote>"
-            "\n\n"
+            "<code>1 Month – 200$</code>\n"
             "After making a deposit, send us the screenshot,\n"
             "and the access link is sent automatically.",
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -98,8 +97,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot[user_id] = "TRC"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>\n"
-            "\n\n"
+            "<b>Send USDT TRC-20 to the following wallet:</b>\n"
             "<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
@@ -109,8 +107,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot[user_id] = "BNB"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>\n"
-            "\n\n"
+            "<b>Send USDT-BNB to the following wallet:</b>\n"
             "<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
