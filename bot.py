@@ -116,7 +116,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
 
-
     elif query.data == "send_screenshot":
         if user_id not in waiting_for_screenshot:
             await query.message.reply_text("Please select a payment method first.")
@@ -292,7 +291,7 @@ async def message_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_expired_vips(app):
     while True:
         try:
-            await asyncio.sleep(86400)
+            await asyncio.sleep(86400)  # Daily
             data = load_vip_data()
             now = datetime.utcnow()
             expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
@@ -315,22 +314,15 @@ async def check_expired_vips(app):
 
 # ---------------- Health Endpoint ----------------
 
-async def health(request):
+async def handle_health(request):
     return web.Response(text="OK")
-
-async def start_health_server():
-    app = web.Application()
-    app.add_routes([web.get("/health", health)])
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
 
 # ---------------- Main App ----------------
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # --- Handlers ---
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("removevip", remove_vip))
@@ -343,16 +335,17 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
+    # --- Startup tasks ---
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
-        asyncio.create_task(start_health_server())
 
     app.post_init = on_startup
 
-    print("🚀 Starting bot in WEBHOOK mode...")
+    print("🚀 Starting bot in WEBHOOK mode on root path...")
+
     app.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 10000)),
-        url_path=BOT_TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+        url_path="",  # root
+        webhook_url=f"{WEBHOOK_URL}/",  # matches root
     )
