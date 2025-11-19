@@ -10,14 +10,15 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters
 )
-from aiohttp import web
+from aiohttp import web  # For health endpoint
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-OWNER_ID = 8448843919
+OWNER_ID = 8448843919  # Your Telegram ID
 VIP_FILE = "vip_data.json"
 
 waiting_for_screenshot = {}
+# Format: waiting_for_screenshot[user_id] = "TRC" or "BNB"
 
 # ---------------- Helper functions ----------------
 
@@ -64,7 +65,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("USDT-BNB", callback_data="vip_bnb")]
         ]
         await update.message.reply_text(
-            "<blockquote>200$ - 1 Month</blockquote>\n\nAfter making a deposit, send us the screenshot,\nand the access link is sent automatically.",
+               "<blockquote>200$ - 1 Month</blockquote>"
+            "\n\n"
+            "After making a deposit, send us the screenshot,\n"
+            "and the access link is sent automatically.",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
@@ -94,18 +98,25 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         waiting_for_screenshot[user_id] = "TRC"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>\n\n<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>",
+            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>"
+            "\n\n"
+            "<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
+
     elif query.data == "vip_bnb":
         waiting_for_screenshot[user_id] = "BNB"
         keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
         await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>\n\n<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>",
+            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>"
+            "\n\n"
+            "<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
+
+
     elif query.data == "send_screenshot":
         if user_id not in waiting_for_screenshot:
             await query.message.reply_text("Please select a payment method first.")
@@ -117,26 +128,44 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
+
     if user_id not in waiting_for_screenshot:
         await update.message.reply_text("I wasn't expecting a photo. Please press 'Buy VIP' first.")
         return
 
     photo_file = update.message.photo[-1]
     file = await photo_file.get_file()
+
     payment_type = waiting_for_screenshot[user_id]
+
     profile_link = f"https://t.me/{user.username}" if user.username else "No username available"
 
     caption = (
         f"📸 Screenshot Received ({payment_type})\n\n"
-        f"👤 User Info\nID: {user.id}\nUsername: @{user.username if user.username else 'N/A'}\n"
-        f"Name: {user.full_name}\nProfile: {profile_link}"
+        f"👤 User Info\n"
+        f"ID: {user.id}\n"
+        f"Username: @{user.username if user.username else 'N/A'}\n"
+        f"Name: {user.full_name}\n"
+        f"Profile: {profile_link}"
     )
 
-    await context.bot.send_photo(chat_id=OWNER_ID, photo=file.file_id, caption=caption, parse_mode="Markdown")
+    await context.bot.send_photo(
+        chat_id=OWNER_ID,
+        photo=file.file_id,
+        caption=caption,
+        parse_mode="Markdown"
+    )
+
     del waiting_for_screenshot[user_id]
 
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]])
-    await update.message.reply_text("✅ Payment received. Usually less than 30 minutes to confirm. Contact support if there are issues.", reply_markup=keyboard)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Go to my profile", url="https://t.me/HXDM100")]
+    ])
+
+    await update.message.reply_text(
+        "✅ Payment received. Usually less than 30 minutes to confirm. Contact support if there are issues.",
+        reply_markup=keyboard
+    )
 
 # ---------------- Admin Commands ----------------
 
@@ -156,7 +185,15 @@ async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_vip_data(data)
     await update.message.reply_text(f"✅ VIP added for user {user_id} ({days} days).")
     try:
-        await context.bot.send_message(chat_id=int(user_id), text=f"💎 Your VIP subscription is confirmed!\nYou now have {days} days access to the VIP channel.\n\nWelcome aboard! 🚀", parse_mode="Markdown")
+        await context.bot.send_message(
+            chat_id=int(user_id),
+            text=(
+                f"💎 Your VIP subscription is confirmed!\n"
+                f"You now have {days} days access to the VIP channel.\n\n"
+                f"Welcome aboard! 🚀"
+            ),
+            parse_mode="Markdown"
+        )
     except Exception:
         pass
 
@@ -185,7 +222,10 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not data:
         await update.message.reply_text("No VIPs found.")
         return
-    report_lines = [f"ID: {uid} | Days left: {(datetime.fromisoformat(expiry) - datetime.utcnow()).days}" for uid, expiry in data.items()]
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        report_lines.append(f"ID: {uid} | Days left: {days_left}")
     await update.message.reply_text("\n".join(report_lines))
 
 async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,7 +236,10 @@ async def export_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not data:
         await update.message.reply_text("No VIPs found.")
         return
-    report_lines = [f"{uid} {(datetime.fromisoformat(expiry) - datetime.utcnow()).days}" for uid, expiry in data.items()]
+    report_lines = []
+    for uid, expiry in data.items():
+        days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+        report_lines.append(f"{uid} {days_left}")
     await update.message.reply_text("💾 VIP List (ready for import):\n" + "\n".join(report_lines))
 
 async def import_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -259,22 +302,35 @@ async def check_expired_vips(app):
             if expired:
                 save_vip_data(data)
             if data:
-                report_lines = [f"{uid} {(datetime.fromisoformat(expiry) - datetime.utcnow()).days}" for uid, expiry in data.items()]
-                await app.bot.send_message(chat_id=OWNER_ID, text="💾 Daily VIP List:\n" + "\n".join(report_lines))
+                report_lines = []
+                for uid, expiry in data.items():
+                    days_left = (datetime.fromisoformat(expiry) - datetime.utcnow()).days
+                    report_lines.append(f"{uid} {days_left}")
+                await app.bot.send_message(
+                    chat_id=OWNER_ID,
+                    text="💾 Daily VIP List:\n" + "\n".join(report_lines)
+                )
         except Exception as e:
             print(f"Error in VIP checker: {e}")
 
 # ---------------- Health Endpoint ----------------
 
-async def handle_health(request):
+async def health(request):
     return web.Response(text="OK")
+
+async def start_health_server():
+    app = web.Application()
+    app.add_routes([web.get("/health", health)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
 
 # ---------------- Main App ----------------
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # --- Telegram Handlers ---
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addvip", add_vip))
     app.add_handler(CommandHandler("removevip", remove_vip))
@@ -282,24 +338,21 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("exportvip", export_vip))
     app.add_handler(CommandHandler("importvip", import_vip))
     app.add_handler(CommandHandler("message", message_user))
+
     app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
-    # --- Startup Tasks ---
     async def on_startup(app_instance):
         asyncio.create_task(check_expired_vips(app_instance))
+        asyncio.create_task(start_health_server())
 
     app.post_init = on_startup
 
-    # --- Integrate health endpoint ---
-    app.web_app.add_routes([web.get("/health", handle_health)])
-
-    print("🚀 Starting bot in WEBHOOK mode on root path with health endpoint...")
-
+    print("🚀 Starting bot in WEBHOOK mode...")
     app.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 10000)),
-        url_path="",
-        webhook_url=f"{WEBHOOK_URL}/",
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
     )
