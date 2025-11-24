@@ -14,7 +14,7 @@ from aiohttp import web
 
 # ----------------- ENV -----------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")     # e.g. https://vip-s-bot.onrender.com
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")     # https://vip-s-bot.onrender.com
 OWNER_ID = 8448843919
 VIP_FILE = "vip_data.json"
 PORT = int(os.environ.get("PORT", 10000))
@@ -153,7 +153,7 @@ async def vip_checker(bot):
         if expired:
             save_vip_data(data)
 
-# ----------------- AIOHTTP -----------------
+# ----------------- WEBHOOK SERVER -----------------
 async def handle_health(request):
     return web.Response(text="OK")
 
@@ -165,20 +165,22 @@ async def main():
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Start VIP expiration task
     async def on_start(app):
         asyncio.create_task(vip_checker(app.bot))
 
     application.post_init = on_start
 
-    # Build AIOHTTP web app
+    # ----------------- AIOHTTP app -----------------
     app = web.Application()
 
-    # Add bot webhook endpoint
     async def telegram_webhook(request):
-        data = await request.json()
-        await application.update_queue.put(data)
-        return web.Response()
+        try:
+            data = await request.json()
+            update = Update.de_json(data, application.bot)
+            await application.process_update(update)
+        except Exception as e:
+            print("Webhook error", e)
+        return web.Response(text="OK")
 
     app.router.add_post(f"/{BOT_TOKEN}", telegram_webhook)
     app.router.add_get("/", handle_health)
@@ -186,17 +188,14 @@ async def main():
     print("🚀 Initializing bot...")
     await application.initialize()
     await application.start()
-    await application.updater.start_polling()  # required for update_queue handling
 
-    print(f"🚀 Webhook listening at /{BOT_TOKEN}")
+    print(f"🚀 Webhook active at: /{BOT_TOKEN}")
 
-    # Start web server
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
-    # Keep running
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
