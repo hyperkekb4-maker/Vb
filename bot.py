@@ -15,7 +15,7 @@ from aiohttp import web
 # ----------------- ENV -----------------
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")   # example: https://your-app.onrender.com
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 OWNER_ID = 8448843919
 VIP_FILE = "vip_data.json"
 PORT = int(os.environ.get("PORT", 10000))
@@ -117,7 +117,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payment_type = waiting_for_screenshot[uid]
     del waiting_for_screenshot[uid]
 
-    photo_file = update.message.photo[-1].file_id
+    file_id = update.message.photo[-1].file_id
 
     caption = (
         f"📸 Screenshot ({payment_type})\n"
@@ -126,10 +126,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Name: {user.full_name}"
     )
 
-    # send screenshot to owner
     await context.bot.send_photo(
         chat_id=OWNER_ID,
-        photo=photo_file,
+        photo=file_id,
         caption=caption
     )
 
@@ -140,13 +139,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     )
 
-# ----------------- EXPIRATION CHECKER -----------------
+# ----------------- VIP EXPIRATION TASK -----------------
 
 async def vip_checker(bot):
     while True:
         await asyncio.sleep(86400)
         data = load_vip_data()
         now = datetime.utcnow()
+
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
 
         for uid in expired:
@@ -167,10 +167,9 @@ async def handle_root(request):
 async def handle_health(request):
     return web.Response(text="OK")
 
-# ----------------- MAIN -----------------
+# ----------------- MAIN (MANUAL WEBHOOK SERVER) -----------------
 
-if __name__ == "__main__":
-
+async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Handlers
@@ -179,23 +178,40 @@ if __name__ == "__main__":
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Launch background task
     async def on_start(app):
         asyncio.create_task(vip_checker(app.bot))
 
     application.post_init = on_start
 
-    # AIOHTTP for Render
+    # ---- AIOHTTP WEB SERVER ----
     web_app = web.Application()
+
+    # Telegram webhook handler from PTB
+    webhook_handler = application.webhook_handler()
+
+    web_app.router.add_post(f"/{BOT_TOKEN}", webhook_handler)
     web_app.router.add_get("/", handle_root)
     web_app.router.add_get("/health", handle_health)
 
-    print("🚀 Starting Webhook Server...")
+    # Set Telegram webhook on startup
+    async def set_webhook(_):
+        await application.bot.set_webhook(f"{WEBHOOK_URL}/{BOT_TOKEN}")
 
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
-        url_path=BOT_TOKEN,
-        web_app=web_app
-    )
+    web_app.on_startup.append(set_webhook)
+
+    # Start aiohttp
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    print("🚀 Webhook server started!")
+    await site.start()
+
+    # Required PTB startup
+    await application.initialize()
+    await application.start()
+
+    # Keep running
+    await application.wait_closed()
+
+if __name__ == "__main__":
+    asyncio.run(main())
