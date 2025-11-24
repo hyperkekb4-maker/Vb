@@ -13,9 +13,8 @@ from telegram.ext import (
 from aiohttp import web
 
 # ----------------- ENV -----------------
-
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")     # e.g. https://vip-s-bot.onrender.com
 OWNER_ID = 8448843919
 VIP_FILE = "vip_data.json"
 PORT = int(os.environ.get("PORT", 10000))
@@ -23,7 +22,6 @@ PORT = int(os.environ.get("PORT", 10000))
 waiting_for_screenshot = {}
 
 # ----------------- VIP SYSTEM -----------------
-
 def load_vip_data():
     if os.path.exists(VIP_FILE):
         with open(VIP_FILE, "r") as f:
@@ -42,13 +40,11 @@ def get_days_left(user_id):
     return max(0, (expiry - datetime.utcnow()).days)
 
 # ----------------- UI -----------------
-
 def main_menu():
     keyboard = [["Buy VIP", "📱 My Account"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # ----------------- HANDLERS -----------------
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome!", reply_markup=main_menu())
 
@@ -117,7 +113,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payment_type = waiting_for_screenshot[uid]
     del waiting_for_screenshot[uid]
 
-    file_id = update.message.photo[-1].file_id
+    photo_file = update.message.photo[-1].file_id
 
     caption = (
         f"📸 Screenshot ({payment_type})\n"
@@ -128,7 +124,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_photo(
         chat_id=OWNER_ID,
-        photo=file_id,
+        photo=photo_file,
         caption=caption
     )
 
@@ -139,14 +135,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     )
 
-# ----------------- VIP EXPIRATION TASK -----------------
-
+# ----------------- EXPIRATION CHECKER -----------------
 async def vip_checker(bot):
     while True:
         await asyncio.sleep(86400)
         data = load_vip_data()
         now = datetime.utcnow()
-
         expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
 
         for uid in expired:
@@ -159,59 +153,51 @@ async def vip_checker(bot):
         if expired:
             save_vip_data(data)
 
-# ----------------- AIOHTTP ROUTES -----------------
-
-async def handle_root(request):
-    return web.Response(text="OK")
-
+# ----------------- AIOHTTP -----------------
 async def handle_health(request):
     return web.Response(text="OK")
-
-# ----------------- MAIN (MANUAL WEBHOOK SERVER) -----------------
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT, handle_text))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
+    # Start VIP expiration task
     async def on_start(app):
         asyncio.create_task(vip_checker(app.bot))
 
     application.post_init = on_start
 
-    # ---- AIOHTTP WEB SERVER ----
-    web_app = web.Application()
+    # Build AIOHTTP web app
+    app = web.Application()
 
-    # Telegram webhook handler from PTB
-    webhook_handler = application.webhook_handler()
+    # Add bot webhook endpoint
+    async def telegram_webhook(request):
+        data = await request.json()
+        await application.update_queue.put(data)
+        return web.Response()
 
-    web_app.router.add_post(f"/{BOT_TOKEN}", webhook_handler)
-    web_app.router.add_get("/", handle_root)
-    web_app.router.add_get("/health", handle_health)
+    app.router.add_post(f"/{BOT_TOKEN}", telegram_webhook)
+    app.router.add_get("/", handle_health)
 
-    # Set Telegram webhook on startup
-    async def set_webhook(_):
-        await application.bot.set_webhook(f"{WEBHOOK_URL}/{BOT_TOKEN}")
-
-    web_app.on_startup.append(set_webhook)
-
-    # Start aiohttp
-    runner = web.AppRunner(web_app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    print("🚀 Webhook server started!")
-    await site.start()
-
-    # Required PTB startup
+    print("🚀 Initializing bot...")
     await application.initialize()
     await application.start()
+    await application.updater.start_polling()  # required for update_queue handling
+
+    print(f"🚀 Webhook listening at /{BOT_TOKEN}")
+
+    # Start web server
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
 
     # Keep running
-    await application.wait_closed()
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
