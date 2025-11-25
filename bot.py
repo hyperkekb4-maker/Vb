@@ -59,19 +59,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if text == "📱 My Account":
-        days = get_days_left(user_id)
-        if days is None:
-            await update.message.reply_text("❌ No VIP subscription.")
-  elif days > 0:
-    await update.message.reply_text(
-        f"💎 VIP active\n"
-        f"⏳ {days} days remaining"
-    )
+if text == "📱 My Account":
+    days = get_days_left(user_id)
+    if days is None:
+        await update.message.reply_text("❌ No VIP subscription.")
+    elif days > 0:
+        await update.message.reply_text(
+            f"💎 VIP active\n"
+            f"⏳ {days} days remaining"
+        )
+    else:
+        await update.message.reply_text("⚠️ Your VIP has expired.")
+    return
 
-        else:
-            await update.message.reply_text("⚠️ Your VIP has expired.")
-        return
 
     if user_id in waiting_for_screenshot:
         await update.message.reply_text("Please send your screenshot as a photo, not text.")
