@@ -63,9 +63,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         days = get_days_left(user_id)
         if days is None:
             await update.message.reply_text("❌ No VIP subscription.")
-        elif days > 0:
-            expiry = datetime.fromisoformat(load_vip_data()[str(user_id)])
-            await update.message.reply_text(f"💎 VIP active until {expiry.strftime('%Y-%m-%d %H:%M UTC')}")
+  elif days > 0:
+    await update.message.reply_text(
+        f"💎 VIP active\n"
+        f"⏳ {days} days remaining"
+    )
+
         else:
             await update.message.reply_text("⚠️ Your VIP has expired.")
         return
