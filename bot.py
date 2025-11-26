@@ -94,27 +94,41 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
-    if query.data == "vip_trc":
-        waiting_for_screenshot[user_id] = "TRC"
-        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>"
-            "\n\n"
-            "<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="HTML"
-        )
+  if query.data == "vip_trc":
+    waiting_for_screenshot[user_id] = "TRC"
 
-    elif query.data == "vip_bnb":
-        waiting_for_screenshot[user_id] = "BNB"
-        keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
-        await query.message.reply_text(
-            "<b>After depositing to Wallet, send the screenshot below, usually less than 30 minute is confirmed</b>"
-            "\n\n"
-            "<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="HTML"
-        )
+    # DELETE previous message
+    await query.message.delete()
+
+    keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "<b>After depositing to Wallet, send the screenshot below, usually less than "
+            "30 minutes is confirmed</b>\n\n"
+            "<code>TSxvZs96scypQ2Bc67c4jqN68fdNVCJNKw</code>"
+        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+elif query.data == "vip_bnb":
+    waiting_for_screenshot[user_id] = "BNB"
+
+    # DELETE previous message
+    await query.message.delete()
+
+    keyboard = [[InlineKeyboardButton("Send Screenshot", callback_data="send_screenshot")]]
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "<b>After depositing to Wallet, send the screenshot below, usually less than "
+            "30 minutes is confirmed</b>\n\n"
+            "<code>0xa8F380Ef9BC7669418B9a8e4bA38EA2d252d0003</code>"
+        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
 
 
     elif query.data == "send_screenshot":
