@@ -66,7 +66,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await update.message.reply_text(
                "<blockquote>Subscription Price:</blockquote>"
-            "\n\n"
+           
                  "<blockquote>200$ - 1 Month</blockquote>"
             "\n\n"
             "After making a deposit, send us the screenshot,\n"
