@@ -68,9 +68,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                "<blockquote>Subscription Price:</blockquote>"
            
                  "<blockquote>200$ - 1 Month</blockquote>"
-            "\n\n"
-            "After making a deposit, send us the screenshot,\n"
-            "and the access link is sent automatically.",
+             "\n\n"
+"<blockquote>Select your payment option:</blockquote>"
+
+            
+            
+      #      "After making a deposit, send us the screenshot,\n"
+            "",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="HTML"
         )
