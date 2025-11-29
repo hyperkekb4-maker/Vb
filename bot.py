@@ -65,7 +65,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("USDT-BNB", callback_data="vip_bnb")]
         ]
         await update.message.reply_text(
-               "<blockquote>200$ - 1 Month</blockquote>"
+               "<blockquote>Subscription Price:</blockquote>"
+            "\n\n"
+                 "<blockquote>200$ - 1 Month</blockquote>"
             "\n\n"
             "After making a deposit, send us the screenshot,\n"
             "and the access link is sent automatically.",
