@@ -7,17 +7,50 @@ from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 )
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    Application, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters
 )
 from aiohttp import web
 
+# Bot configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # e.g., https://your-app.onrender.com
 OWNER_ID = 8448843919
 VIP_FILE = "vip_data.json"
 
 waiting_for_screenshot = {}
+
+# Optional health check endpoint (for Render or uptime monitoring)
+async def health(request):
+    return web.Response(text="OK")
+
+# Initialize the Telegram bot
+app = Application.builder().token(BOT_TOKEN).build()
+
+# If you want a health endpoint, create an aiohttp server alongside PTB
+async def run_servers():
+    # Aiohttp server for health checks
+    web_app = web.Application()
+    web_app.router.add_get("/health", health)
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8443)))
+    await site.start()
+
+    # Start the bot webhook server
+    await app.initialize()
+    await app.start()
+    await app.updater.start_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8443)),
+        url_path=BOT_TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
+    )
+    await app.updater.idle()
+
+# Entry point
+if __name__ == "__main__":
+    asyncio.run(run_servers())
 
 
 # ---------------- Helper functions ----------------
