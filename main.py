@@ -214,7 +214,6 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- Background VIP Checker ----------------
 
 async def vip_checker(application):
-    await application.wait_until_ready()
     while True:
         await asyncio.sleep(86400)  # check once per day
 
@@ -232,8 +231,6 @@ async def vip_checker(application):
             save_vip_data(data)
 
 
-# ---------------- POLLING MODE MAIN ----------------
-
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -246,20 +243,15 @@ async def main():
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background task
-    asyncio.create_task(vip_checker(application))
+    # Background task (run after bot starts)
+    application.create_task(vip_checker(application))
 
     print("🤖 Bot started in POLLING mode...")
-    await application.run_polling()
+    await application.run_polling()  # PTB handles the event loop itself
 
-
-# ---------------- RUN BOT ----------------
 
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_running_loop()
-        # already running (like Render), schedule main() as a task
-        asyncio.create_task(main())
-    except RuntimeError:
-        # no loop running, safe to run normally
-        asyncio.run(main())
+    import asyncio
+    # Just run main() in the standard loop
+    asyncio.run(main())
+
