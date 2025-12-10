@@ -214,9 +214,9 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- Background VIP Checker ----------------
 
 async def vip_checker(application):
-    await application.wait_until_ready()  # ensures bot is started
+    await application.wait_until_ready()
     while True:
-        await asyncio.sleep(86400)
+        await asyncio.sleep(86400)  # check once per day
 
         data = load_vip_data()
         now = datetime.utcnow()
@@ -253,5 +253,13 @@ async def main():
     await application.run_polling()
 
 
+# ---------------- RUN BOT ----------------
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_running_loop()
+        # already running (like Render), schedule main() as a task
+        asyncio.create_task(main())
+    except RuntimeError:
+        # no loop running, safe to run normally
+        asyncio.run(main())
