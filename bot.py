@@ -3,18 +3,16 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 
-from aiohttp import web
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 )
 from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler,
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")   # e.g. https://xxxx-xx.run.app
-OWNER_ID = 8448843919                         # Valid 64-bit Telegram ID
+BOT_TOKEN = os.environ.get("BOT_TOKEN")             
+OWNER_ID = 8448843919                               
 VIP_FILE = "vip_data.json"
 
 waiting_for_screenshot = {}
@@ -145,7 +143,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Profile: {profile_link}"
     )
 
-    # send to owner
     await context.bot.send_photo(
         chat_id=OWNER_ID,
         photo=photo.file_id,
@@ -214,9 +211,10 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines))
 
 
-# ---------------- Background Expiration Checker ----------------
+# ---------------- Background VIP Checker ----------------
 
-async def vip_checker(app: Application):
+async def vip_checker(application):
+    await application.wait_until_ready()  # ensures bot is started
     while True:
         await asyncio.sleep(86400)
 
@@ -227,63 +225,32 @@ async def vip_checker(app: Application):
                    if datetime.fromisoformat(exp) <= now]
 
         for uid in expired:
-            await app.bot.send_message(OWNER_ID, f"⚠ VIP expired for user {uid}")
+            await application.bot.send_message(OWNER_ID, f"⚠ VIP expired for user {uid}")
             del data[uid]
 
         if expired:
             save_vip_data(data)
 
 
-# ---------------- Webhook Server ----------------
-
-async def health(request):
-    return web.Response(text="OK")
-
-
-async def handle_webhook(request):
-    app: Application = request.app["bot_app"]
-    update_data = await request.json()
-    await app.update_queue.put(update_data)
-    return web.Response()
-
+# ---------------- POLLING MODE MAIN ----------------
 
 async def main():
-    bot_app = Application.builder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # handlers
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("addvip", add_vip))
-    bot_app.add_handler(CommandHandler("removevip", remove_vip))
-    bot_app.add_handler(CommandHandler("viplist", vip_list))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    bot_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    bot_app.add_handler(CallbackQueryHandler(button_callback))
+    # Handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("addvip", add_vip))
+    application.add_handler(CommandHandler("removevip", remove_vip))
+    application.add_handler(CommandHandler("viplist", vip_list))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    application.add_handler(CallbackQueryHandler(button_callback))
 
-    # aiohttp web server
-    aio = web.Application()
-    aio["bot_app"] = bot_app
+    # Background task
+    asyncio.create_task(vip_checker(application))
 
-    aio.router.add_get("/health", health)
-    aio.router.add_post(f"/{BOT_TOKEN}", handle_webhook)
-
-    # init bot
-    await bot_app.initialize()
-    await bot_app.start()
-    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/{BOT_TOKEN}")
-
-    # start background task
-    asyncio.create_task(vip_checker(bot_app))
-
-    # run server
-    runner = web.AppRunner(aio)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
-    await site.start()
-
-    print("🚀 BOT WEBHOOK SERVER RUNNING...")
-
-    # keep alive
-    await asyncio.Event().wait()
+    print("🤖 Bot started in POLLING mode...")
+    await application.run_polling()
 
 
 if __name__ == "__main__":
