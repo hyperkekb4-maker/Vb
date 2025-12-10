@@ -1,43 +1,40 @@
 import os
-import json
-import re
-from datetime import datetime, timedelta
 import asyncio
-from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-)
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler,
-    MessageHandler, ContextTypes, filters
-)
 from aiohttp import web
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-# Bot configuration
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # e.g., https://your-app.onrender.com
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+WEBHOOK_URL = os.environ["WEBHOOK_URL"]
 OWNER_ID = 8448843919
-VIP_FILE = "vip_data.json"
 
 waiting_for_screenshot = {}
 
-# Optional health check endpoint (for Render or uptime monitoring)
+# ---------------- Health endpoint ----------------
 async def health(request):
     return web.Response(text="OK")
 
-# Initialize the Telegram bot
-app = Application.builder().token(BOT_TOKEN).build()
+# ---------------- Handlers ----------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [["Buy VIP", "📱 My Account"]]
+    await update.message.reply_text(
+        "Welcome! Press the button below:",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    )
 
-# If you want a health endpoint, create an aiohttp server alongside PTB
-async def run_servers():
-    # Aiohttp server for health checks
-    web_app = web.Application()
-    web_app.router.add_get("/health", health)
-    runner = web.AppRunner(web_app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8443)))
-    await site.start()
+# Add your other handlers here...
+# e.g., handle_text, handle_photo, button_callback, admin commands
 
-    # Start the bot webhook server
+# ---------------- Main ----------------
+async def main():
+    # Initialize bot
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    # Register handlers
+    app.add_handler(CommandHandler("start", start))
+    # ... add all your other handlers here
+
+    # Start webhook server
     await app.initialize()
     await app.start()
     await app.updater.start_webhook(
@@ -46,11 +43,12 @@ async def run_servers():
         url_path=BOT_TOKEN,
         webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
     )
+    print("🚀 Bot is running via webhook...")
     await app.updater.idle()
 
-# Entry point
 if __name__ == "__main__":
-    asyncio.run(run_servers())
+    asyncio.run(main())
+
 
 
 # ---------------- Helper functions ----------------
