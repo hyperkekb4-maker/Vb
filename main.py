@@ -1,8 +1,19 @@
 import os
 import asyncio
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-from telegram.ext import ApplicationBuilder
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
+import nest_asyncio
+
+nest_asyncio.apply()  # Allows nested asyncio loops if needed
 
 # ---------------- Dummy HTTP Server for Render ----------------
 class Handler(BaseHTTPRequestHandler):
@@ -19,11 +30,41 @@ def start_server():
 
 threading.Thread(target=start_server, daemon=True).start()
 
+# ---------------- Bot Handlers (fill these in) ----------------
+BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Make sure your Render env has this
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello! Bot is running.")
+
+async def add_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("VIP added!")
+
+async def remove_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("VIP removed!")
+
+async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("VIP list here!")
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"You said: {update.message.text}")
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Nice photo!")
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer("Button clicked!")
+
+# Example background task
+async def vip_checker(application):
+    while True:
+        print("Checking VIPs...")
+        await asyncio.sleep(60)  # every 60 seconds
+
 # ---------------- Main Bot ----------------
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers
+    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addvip", add_vip))
     application.add_handler(CommandHandler("removevip", remove_vip))
@@ -32,11 +73,11 @@ async def main():
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background task (run after bot starts)
+    # Background task
     application.create_task(vip_checker(application))
 
     print("🤖 Bot started in POLLING mode...")
-    await application.run_polling()  # PTB handles the event loop
+    await application.run_polling()
 
 if __name__ == "__main__":
     asyncio.run(main())
