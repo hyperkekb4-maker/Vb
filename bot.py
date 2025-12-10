@@ -26,28 +26,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # e.g., handle_text, handle_photo, button_callback, admin commands
 
 # ---------------- Main ----------------
-async def main():
-    # Initialize bot
-    app = Application.builder().token(BOT_TOKEN).build()
+app.run_webhook(
+    listen="0.0.0.0",
+    port=int(os.environ.get("PORT", 10000)),
+    url_path=BOT_TOKEN,
+    webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+)
 
-    # Register handlers
-    app.add_handler(CommandHandler("start", start))
-    # ... add all your other handlers here
-
-    # Start webhook server
-    await app.initialize()
-    await app.start()
-    await app.updater.start_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8443)),
-        url_path=BOT_TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}"
-    )
-    print("🚀 Bot is running via webhook...")
-    await app.updater.idle()
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 
 
