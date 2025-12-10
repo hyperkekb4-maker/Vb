@@ -216,20 +216,22 @@ async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def vip_checker(application):
     while True:
         await asyncio.sleep(86400)  # check once per day
-
         data = load_vip_data()
         now = datetime.utcnow()
-
-        expired = [uid for uid, exp in data.items()
-                   if datetime.fromisoformat(exp) <= now]
+        expired = [uid for uid, exp in data.items() if datetime.fromisoformat(exp) <= now]
 
         for uid in expired:
-            await application.bot.send_message(OWNER_ID, f"⚠ VIP expired for user {uid}")
+            try:
+                await application.bot.send_message(OWNER_ID, f"⚠ VIP expired for user {uid}")
+            except Exception:
+                pass
             del data[uid]
 
         if expired:
             save_vip_data(data)
 
+
+# ---------------- Main Function ----------------
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -243,15 +245,18 @@ async def main():
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    # Background task (run after bot starts)
+    # Start background VIP checker
     application.create_task(vip_checker(application))
 
     print("🤖 Bot started in POLLING mode...")
-    await application.run_polling()  # PTB handles the event loop itself
+    await application.run_polling()  # PTB manages its own event loop
 
+
+# ---------------- Entry Point ----------------
 
 if __name__ == "__main__":
-    import asyncio
-    # Just run main() in the standard loop
-    asyncio.run(main())
+    import nest_asyncio
+    nest_asyncio.apply()  # fix "already running event loop" on Render or Jupyter
 
+    import asyncio
+    asyncio.run(main())
